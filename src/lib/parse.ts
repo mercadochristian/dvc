@@ -1,5 +1,15 @@
 // src/lib/parse.ts
-import { GameStatus, PositionName, POSITION_NAMES } from './types'
+import { GameStatus, PositionName } from './types'
+
+function parseLocalDate(dateStr: string): Date | null {
+  // Parse "Month Day, Year" (e.g. "April 14, 2026") as local date to avoid UTC shift
+  const match = dateStr.match(/^(\w+)\s+(\d+),\s+(\d{4})$/)
+  if (!match) return null
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const monthIdx = monthNames.indexOf(match[1])
+  if (monthIdx === -1) return null
+  return new Date(parseInt(match[3]), monthIdx, parseInt(match[2]))
+}
 
 export function parseWeekNumber(name: string): number {
   const match = name.match(/Week\s+(\d+)/i)
@@ -29,8 +39,8 @@ export function computeGameStatus(
 export function buildDateRange(dates: string[]): string {
   if (dates.length === 0) return ''
   const parsed = dates
-    .map(d => new Date(d))
-    .filter(d => !isNaN(d.getTime()))
+    .map(d => parseLocalDate(d))
+    .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()))
   if (parsed.length === 0) return ''
   parsed.sort((a, b) => a.getTime() - b.getTime())
   const first = parsed[0]
@@ -65,28 +75,10 @@ export function parseRegistrationTabName(tabName: string): {
 }
 
 export function formatDayLabel(dateStr: string): string {
-  const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return dateStr.toUpperCase()
-  // Parse as local date to avoid timezone-induced day shifts
-  const parts = dateStr.match(/(\w+)\s+(\d+),\s+(\d+)/)
-  if (parts) {
-    const months: Record<string, number> = {
-      January: 0, February: 1, March: 2, April: 3, May: 4, June: 5,
-      July: 6, August: 7, September: 8, October: 9, November: 10, December: 11,
-    }
-    const monthIdx = months[parts[1]]
-    if (monthIdx !== undefined) {
-      const localDate = new Date(parseInt(parts[3], 10), monthIdx, parseInt(parts[2], 10))
-      const weekday = localDate.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
-      const month = localDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
-      const day = localDate.getDate()
-      return `${weekday}, ${month} ${day}`
-    }
-  }
+  const date = parseLocalDate(dateStr)
+  if (!date || Number.isNaN(date.getTime())) return dateStr.toUpperCase()
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
   const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
   const day = date.getDate()
   return `${weekday}, ${month} ${day}`
 }
-
-export { POSITION_NAMES }
