@@ -23,12 +23,16 @@ function findCurrentWeekIndex(weeks: WeekInfo[]): number {
   const today = parseLocalDate(todayStr)
   if (!today) return weeks.length - 1
 
-  // Walk forward; keep updating bestIndex as long as firstDate <= today.
-  // This naturally lands on the last week whose start is on or before today.
+  // Pick the week whose firstDate is closest to today (past or future).
+  // e.g. if today is Sunday and the next week starts Monday, show next week.
   let bestIndex = weeks.length - 1
+  let minDiff = Number.POSITIVE_INFINITY
   for (let i = 0; i < weeks.length; i++) {
     const first = parseLocalDate(weeks[i].firstDate ?? '')
-    if (first && first.getTime() <= today.getTime()) {
+    if (!first) continue
+    const diff = Math.abs(first.getTime() - today.getTime())
+    if (diff < minDiff) {
+      minDiff = diff
       bestIndex = i
     }
   }

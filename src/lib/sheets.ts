@@ -154,7 +154,6 @@ export async function buildWeekSchedule(
   const allDates: string[] = []
   // Map preserves insertion order (= sheet row order = date order)
   const dayMap = new Map<string, Game[]>()
-
   for (const row of rows) {
     const date = row[dateCol]?.trim() ?? ''
     const location = row[locationCol]?.trim() ?? ''
@@ -180,16 +179,16 @@ export async function buildWeekSchedule(
       'Middle Blocker': 0,
       'Setter': 0,
     }
-
     if (matchingTab) {
       // Wrap tab name in single quotes to handle spaces/special chars
       const safeRange = `'${matchingTab.replace(/'/g, "\\'")}'`
       const regValues = await getSheetValues(spreadsheetId, safeRange)
       if (regValues.length >= 2) {
-        const regHeaders = regValues[0].map(h => h.toLowerCase().trim())
+        // Headers are at row 2 (index 1); row 1 (index 0) is unused/empty
+        const regHeaders = regValues[1].map(h => h.toLowerCase().trim())
         const posCol = regHeaders.indexOf('position')
         if (posCol >= 0) {
-          for (const regRow of regValues.slice(1)) {
+          for (const regRow of regValues.slice(2)) {
             const pos = regRow[posCol]?.trim() as PositionName
             if (POSITION_NAMES.includes(pos)) {
               filled[pos]++

@@ -23,7 +23,6 @@ interface GameCardProps {
 
 export function GameCard({ game, messengerUrl, instagramUrl }: GameCardProps) {
   const { location, city, time, cancelled, status, positions } = game
-
   return (
     <div
       className={`bg-[#1a1d2e] border border-[#252840] rounded-[14px] p-3.5 mb-2.5 ${
