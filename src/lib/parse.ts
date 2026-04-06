@@ -36,7 +36,8 @@ export function computeGameStatus(
 ): GameStatus {
   if (cancelled) return 'cancelled'
   if (positions.every(p => p.available === 0)) return 'full'
-  if (positions.some(p => p.available <= 2)) return 'almost_full'
+  const totalAvailable = positions.reduce((sum, p) => sum + p.available, 0)
+  if (totalAvailable <= 4) return 'almost_full'
   return 'open'
 }
 

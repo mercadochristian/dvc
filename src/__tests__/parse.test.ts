@@ -54,15 +54,15 @@ describe('computeGameStatus', () => {
       computeGameStatus([{ available: 0 }, { available: 0 }, { available: 0 }, { available: 0 }], false)
     ).toBe('full')
   })
-  it('returns almost_full when any position has exactly 2 available', () => {
+  it('returns almost_full when total available slots across all positions is ≤ 4', () => {
     expect(
-      computeGameStatus([{ available: 8 }, { available: 2 }, { available: 8 }, { available: 4 }], false)
+      computeGameStatus([{ available: 2 }, { available: 0 }, { available: 1 }, { available: 1 }], false)
     ).toBe('almost_full')
   })
-  it('returns almost_full when any position has 1 available', () => {
+  it('returns open when total available slots is more than 4', () => {
     expect(
-      computeGameStatus([{ available: 5 }, { available: 1 }], false)
-    ).toBe('almost_full')
+      computeGameStatus([{ available: 8 }, { available: 1 }, { available: 8 }, { available: 4 }], false)
+    ).toBe('open')
   })
   it('returns open when all positions have more than 2 available', () => {
     expect(
