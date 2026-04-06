@@ -19,7 +19,25 @@ import {
   formatDayLabel,
 } from './parse'
 
-const TZ = 'Asia/Manila'
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+interface CacheEntry<T> {
+  data: T
+  expires: number
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cache = new Map<string, CacheEntry<any>>()
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key)
+  if (!entry || Date.now() > entry.expires) return null
+  return entry.data as T
+}
+
+function setCached<T>(key: string, data: T): void {
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL })
+}
 
 function getAuthClient() {
   return new google.auth.GoogleAuth({
@@ -41,6 +59,9 @@ function getAuthClient() {
  * parseable week number.
  */
 export async function searchWeeklySheets(): Promise<WeekInfo[]> {
+  const cached = getCached<WeekInfo[]>('weeks')
+  if (cached) return cached
+
   const auth = getAuthClient()
   const drive = google.drive({ version: 'v3', auth })
   const res = await drive.files.list({
@@ -59,7 +80,9 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
     .sort((a, b) => a.weekNumber - b.weekNumber)
 
   const firstDates = await Promise.all(valid.map(f => getFirstGameDate(f.id)))
-  return valid.map((f, i) => ({ ...f, firstDate: firstDates[i] }))
+  const result = valid.map((f, i) => ({ ...f, firstDate: firstDates[i] }))
+  setCached('weeks', result)
+  return result
 }
 
 /**
@@ -121,6 +144,9 @@ export async function buildWeekSchedule(
   spreadsheetId: string,
   weekNumber: number
 ): Promise<WeekSchedule> {
+  const cacheKey = `schedule:${spreadsheetId}`
+  const cached = getCached<WeekSchedule>(cacheKey)
+  if (cached) return cached
   // 1. Get all tab names for matching
   const tabNames = await getSheetTabNames(spreadsheetId)
 
@@ -224,9 +250,11 @@ export async function buildWeekSchedule(
     games,
   }))
 
-  return {
+  const result: WeekSchedule = {
     weekNumber,
     dateRange: buildDateRange(allDates),
     days,
   }
+  setCached(cacheKey, result)
+  return result
 }
