@@ -187,7 +187,13 @@ Computed client-side per position cell:
 - Shows location name, time, city
 - Shows `StatusBadge`
 - Renders 2×2 grid of `PositionSlot` components
-- When `cancelled: true`: applies strikethrough to location name, dims entire card
+- Shows per-game inquiry row: Messenger and Instagram icon buttons (hidden when `cancelled: true`)
+- When `cancelled: true`: applies strikethrough to location name, dims entire card, hides inquiry buttons
+
+### `ContactBar`
+- Persistent header or footer bar visible on all screens
+- Two icon buttons: Messenger, Instagram
+- Links to configured contact URLs from env vars
 
 ### `PositionSlot`
 - Shows position label and available count (or "Full")
@@ -216,6 +222,9 @@ Two variables required in Vercel:
 ```
 GOOGLE_SERVICE_ACCOUNT_EMAIL=your-sa@project.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+CONTACT_MESSENGER_URL=https://m.me/<page-username>
+CONTACT_INSTAGRAM_URL=https://instagram.com/<username>
 ```
 
 All weekly spreadsheets must be shared with the service account email (as Viewer).
@@ -236,9 +245,38 @@ To map a Game Schedule row to its registration tab, the app constructs the expec
 
 ---
 
+## Registration Workflow
+
+The dashboard is read-only. Registration happens outside the app:
+
+1. Player checks available slots on the dashboard
+2. Player contacts the admin via Messenger, Telegram, or Instagram to inquire
+3. Admin sends the Google Form link to the player
+4. Player fills out the Google Form to register
+
+The app supports this workflow by providing contact links at two levels:
+
+### Global Contact Button (Header/Footer)
+A persistent contact bar visible on all screens. Shows three icon buttons:
+- **Messenger** — links to admin's Messenger page
+- **Instagram** — links to admin's Instagram profile
+
+### Per-Game Inquiry Button
+Each game card has an inquiry icon row. Tapping Messenger pre-fills context where supported (e.g., `m.me/<page>?ref=<game-id>`). Instagram links to the profile directly.
+
+### Configuration
+Contact links are set via Vercel environment variables — no code change needed to update them:
+
+```
+CONTACT_MESSENGER_URL=https://m.me/<page-username>
+CONTACT_INSTAGRAM_URL=https://instagram.com/<username>
+```
+
+---
+
 ## Out of Scope
 
-- Player registration (read-only dashboard only)
+- Player registration form within the app (handled via Google Forms sent by admin)
 - Admin UI for managing schedules or cancellations
 - Authentication/login for players
 - Push notifications or email alerts

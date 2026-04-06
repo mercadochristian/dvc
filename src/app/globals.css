@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --bg-body: #0f1117;
+  --bg-surface: #13151f;
+  --bg-card: #1a1d2e;
+  --border-base: #1e2535;
+  --border-card: #252840;
+  --text-primary: #f1f5f9;
+  --text-secondary: #64748b;
+  --text-muted: #334155;
+  --brand-blue: #3b82f6;
+  --brand-amber: #f59e0b;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --red: #f87171;
+  --bg-green-dim: #14532d;
+  --bg-orange-dim: #451a03;
+  --bg-red-dim: #450a0a;
+  --bg-full-slot: #1c0a0a;
+  --border-full: #7f1d1d;
+  --slate-400: #94a3b8;
+}
