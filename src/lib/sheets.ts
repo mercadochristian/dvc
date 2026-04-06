@@ -49,7 +49,7 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
     pageSize: 100,
   })
   const files = res.data.files ?? []
-  return files
+  const valid = files
     .filter(f => f.id && f.name && parseWeekNumber(f.name) > 0)
     .map(f => ({
       id: f.id!,
@@ -57,6 +57,9 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
       weekNumber: parseWeekNumber(f.name!),
     }))
     .sort((a, b) => a.weekNumber - b.weekNumber)
+
+  const firstDates = await Promise.all(valid.map(f => getFirstGameDate(f.id)))
+  return valid.map((f, i) => ({ ...f, firstDate: firstDates[i] }))
 }
 
 /**
@@ -71,6 +74,23 @@ async function getSheetValues(
   const sheets = google.sheets({ version: 'v4', auth })
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range })
   return (res.data.values ?? []) as string[][]
+}
+
+/**
+ * Read the first game date from a spreadsheet's Game Schedule tab.
+ * Returns null if the tab is missing, malformed, or has no data rows.
+ */
+async function getFirstGameDate(spreadsheetId: string): Promise<string | null> {
+  try {
+    const rows = await getSheetValues(spreadsheetId, 'Game Schedule!1:2')
+    if (rows.length < 2) return null
+    const headers = rows[0].map(h => h.toLowerCase().trim())
+    const dateCol = headers.indexOf('date')
+    if (dateCol < 0) return null
+    return rows[1][dateCol]?.trim() || null
+  } catch {
+    return null
+  }
 }
 
 /**

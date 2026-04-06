@@ -44,7 +44,8 @@ export interface WeekSchedule {
 }
 
 export interface WeekInfo {
-  id: string          // Google Spreadsheet ID
-  weekNumber: number  // Parsed from sheet name, e.g. 16
-  name: string        // Full sheet name
+  id: string             // Google Spreadsheet ID
+  weekNumber: number     // Parsed from sheet name, e.g. 16
+  name: string           // Full sheet name
+  firstDate: string | null  // First game date in the sheet, e.g. "April 14, 2026"
 }

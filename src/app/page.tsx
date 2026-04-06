@@ -3,9 +3,37 @@
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { WeekSchedule, WeekInfo } from '@/lib/types'
+import { parseLocalDate } from '@/lib/parse'
 import { WeekNavigator } from '@/components/week-navigator'
 import { DayGroup } from '@/components/day-group'
 import { ContactBar } from '@/components/contact-bar'
+
+/**
+ * Returns the index of the week that contains today (Asia/Manila), or the
+ * most recent past week if today is after all known weeks.
+ * Falls back to the last index if no firstDate data is available.
+ */
+function findCurrentWeekIndex(weeks: WeekInfo[]): number {
+  if (weeks.length === 0) return -1
+
+  const now = new Date()
+  const todayStr = now.toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila',
+  })
+  const today = parseLocalDate(todayStr)
+  if (!today) return weeks.length - 1
+
+  // Walk forward; keep updating bestIndex as long as firstDate <= today.
+  // This naturally lands on the last week whose start is on or before today.
+  let bestIndex = weeks.length - 1
+  for (let i = 0; i < weeks.length; i++) {
+    const first = parseLocalDate(weeks[i].firstDate ?? '')
+    if (first && first.getTime() <= today.getTime()) {
+      bestIndex = i
+    }
+  }
+  return bestIndex
+}
 
 export default function Page() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([])
@@ -29,7 +57,7 @@ export default function Page() {
     }
   }, [])
 
-  // On mount: load available weeks, default to the last (highest-numbered) week
+  // On mount: load available weeks, default to the week containing today (Manila time)
   useEffect(() => {
     async function loadWeeks() {
       try {
@@ -37,7 +65,7 @@ export default function Page() {
         const data: { weeks: WeekInfo[] } = await res.json()
         setWeeks(data.weeks)
         if (data.weeks.length > 0) {
-          setWeekIndex(data.weeks.length - 1)
+          setWeekIndex(findCurrentWeekIndex(data.weeks))
         } else {
           setLoading(false)
         }

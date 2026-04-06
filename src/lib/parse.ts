@@ -3,7 +3,7 @@ import { GameStatus, PositionName } from './types'
 
 const TZ = 'Asia/Manila'
 
-function parseLocalDate(dateStr: string): Date | null {
+export function parseLocalDate(dateStr: string): Date | null {
   // Parse "Month Day, Year" (e.g. "April 14, 2026") as a UTC midnight date.
   // All display formatting uses TZ = 'Asia/Manila' so the rendered date is always correct.
   const match = dateStr.match(/^(\w+)\s+(\d+),\s+(\d{4})$/)
