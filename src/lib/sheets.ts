@@ -17,6 +17,7 @@ import {
   makeGameKey,
   parseRegistrationTabName,
   formatDayLabel,
+  isDatePast,
 } from './parse'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -232,8 +233,8 @@ export async function buildWeekSchedule(
       available: Math.max(0, needed[name] - filled[name]),
     }))
 
-    const status = computeGameStatus(positions, cancelled)
-    const gameId = `${date}-${location}`
+    const status = computeGameStatus(positions, cancelled, isDatePast(date))
+    const gameId = `${date}-${location}-${time}`
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')

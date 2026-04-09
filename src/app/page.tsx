@@ -7,6 +7,7 @@ import { parseLocalDate } from '@/lib/parse'
 import { WeekNavigator } from '@/components/week-navigator'
 import { DayGroup } from '@/components/day-group'
 import { ContactBar } from '@/components/contact-bar'
+import { usePullToRefresh } from '@/lib/use-pull-to-refresh'
 
 /**
  * Returns the index of the week that contains today (Asia/Manila), or the
@@ -49,17 +50,26 @@ export default function Page() {
   const messengerUrl = process.env.NEXT_PUBLIC_CONTACT_MESSENGER_URL ?? '#'
   const instagramUrl = process.env.NEXT_PUBLIC_CONTACT_INSTAGRAM_URL ?? '#'
 
-  const fetchSchedule = useCallback(async (weekId: string) => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/schedule?week=${weekId}`)
-      const data: WeekSchedule = await res.json()
-      setSchedule(data)
-      setLastUpdated(new Date())
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const fetchSchedule = useCallback(
+    async (weekId: string, opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setLoading(true)
+      try {
+        const res = await fetch(`/api/schedule?week=${weekId}`)
+        const data: WeekSchedule = await res.json()
+        setSchedule(data)
+        setLastUpdated(new Date())
+      } finally {
+        if (!opts?.silent) setLoading(false)
+      }
+    },
+    [],
+  )
+
+  // Pull-to-refresh: swipe down at the top of the page to refetch the current week.
+  const { pullDistance, isRefreshing } = usePullToRefresh(async () => {
+    if (weekIndex < 0 || weeks.length === 0) return
+    await fetchSchedule(weeks[weekIndex].id, { silent: true })
+  })
 
   // On mount: load available weeks, default to the week containing today (Manila time)
   useEffect(() => {
@@ -99,6 +109,46 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-[#0f1117] flex flex-col">
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="fixed left-0 right-0 top-0 z-30 flex justify-center pointer-events-none"
+        style={{
+          transform: `translateY(${pullDistance - 50}px)`,
+          opacity: pullDistance > 10 || isRefreshing ? 1 : 0,
+          transition:
+            pullDistance === 0 && !isRefreshing
+              ? 'transform 200ms ease-out, opacity 200ms ease-out'
+              : 'none',
+        }}
+        aria-hidden="true"
+      >
+        <div className="mt-3 rounded-full border border-[#1e2535] bg-[#13151f] p-2 shadow-lg">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={isRefreshing ? 'animate-spin' : ''}
+            style={{
+              color: pullDistance >= 80 || isRefreshing ? '#3b82f6' : '#64748b',
+              transform: isRefreshing
+                ? undefined
+                : `rotate(${Math.min((pullDistance / 80) * 180, 180)}deg)`,
+              transition: 'color 150ms',
+            }}
+          >
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
+        </div>
+      </div>
+
       {/* Header */}
       <header className="bg-[#13151f] border-b border-[#1e2535] px-4 py-3 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2.5">

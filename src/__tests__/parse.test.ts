@@ -7,6 +7,7 @@ import {
   makeGameKey,
   parseRegistrationTabName,
   formatDayLabel,
+  isDatePast,
 } from '@/lib/parse'
 
 describe('parseWeekNumber', () => {
@@ -49,6 +50,17 @@ describe('computeGameStatus', () => {
   it('returns cancelled when cancelled is true regardless of availability', () => {
     expect(computeGameStatus([{ available: 5 }], true)).toBe('cancelled')
   })
+  it('returns cancelled when cancelled and past date — cancelled wins over done', () => {
+    expect(computeGameStatus([{ available: 5 }], true, true)).toBe('cancelled')
+  })
+  it('returns done when isPastDate is true and not cancelled', () => {
+    expect(computeGameStatus([{ available: 8 }], false, true)).toBe('done')
+  })
+  it('returns done regardless of availability when isPastDate is true', () => {
+    expect(
+      computeGameStatus([{ available: 0 }, { available: 0 }, { available: 0 }, { available: 0 }], false, true)
+    ).toBe('done')
+  })
   it('returns full when all positions have 0 available', () => {
     expect(
       computeGameStatus([{ available: 0 }, { available: 0 }, { available: 0 }, { available: 0 }], false)
@@ -68,6 +80,27 @@ describe('computeGameStatus', () => {
     expect(
       computeGameStatus([{ available: 8 }, { available: 4 }, { available: 8 }, { available: 4 }], false)
     ).toBe('open')
+  })
+})
+
+describe('isDatePast', () => {
+  // 2026-04-14 08:00 UTC = April 14, 16:00 Manila → "today" is April 14 in Manila
+  const now = new Date('2026-04-14T08:00:00Z')
+
+  it('returns true for a date before today', () => {
+    expect(isDatePast('April 13, 2026', now)).toBe(true)
+  })
+  it('returns false for today', () => {
+    expect(isDatePast('April 14, 2026', now)).toBe(false)
+  })
+  it('returns false for a future date', () => {
+    expect(isDatePast('April 15, 2026', now)).toBe(false)
+  })
+  it('returns true for a date far in the past', () => {
+    expect(isDatePast('January 1, 2025', now)).toBe(true)
+  })
+  it('returns false for an unparseable date string', () => {
+    expect(isDatePast('not-a-date', now)).toBe(false)
   })
 })
 

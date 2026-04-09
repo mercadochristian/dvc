@@ -32,13 +32,34 @@ export function computeNeeded(teams: number): Record<PositionName, number> {
 
 export function computeGameStatus(
   positions: { available: number }[],
-  cancelled: boolean
+  cancelled: boolean,
+  isPastDate = false
 ): GameStatus {
   if (cancelled) return 'cancelled'
+  if (isPastDate) return 'done'
   if (positions.every(p => p.available === 0)) return 'full'
   const totalAvailable = positions.reduce((sum, p) => sum + p.available, 0)
   if (totalAvailable <= 4) return 'almost_full'
   return 'open'
+}
+
+/**
+ * Returns true if the given date string (e.g. "April 14, 2026") is
+ * strictly before today in Manila time. An optional `now` parameter
+ * allows injecting the current time for testing.
+ */
+export function isDatePast(dateStr: string, now: Date = new Date()): boolean {
+  const date = parseLocalDate(dateStr)
+  if (!date) return false
+  const todayStr = now.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: TZ,
+  })
+  const today = parseLocalDate(todayStr)
+  if (!today) return false
+  return date.getTime() < today.getTime()
 }
 
 export function buildDateRange(dates: string[]): string {

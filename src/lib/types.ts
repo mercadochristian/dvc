@@ -13,7 +13,7 @@ export const POSITION_NAMES: PositionName[] = [
   'Setter',
 ]
 
-export type GameStatus = 'open' | 'almost_full' | 'full' | 'cancelled'
+export type GameStatus = 'open' | 'almost_full' | 'full' | 'cancelled' | 'done'
 
 export interface Position {
   name: PositionName
