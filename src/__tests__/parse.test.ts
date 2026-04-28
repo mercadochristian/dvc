@@ -3,12 +3,14 @@ import {
   parseWeekNumber,
   computeNeeded,
   computeGameStatus,
+  computeAvailableTeams,
   buildDateRange,
   makeGameKey,
   parseRegistrationTabName,
   formatDayLabel,
   isDatePast,
 } from '@/lib/parse'
+import { Position, PositionName } from '@/lib/types'
 
 describe('parseWeekNumber', () => {
   it('extracts week number from full sheet name', () => {
@@ -80,6 +82,59 @@ describe('computeGameStatus', () => {
     expect(
       computeGameStatus([{ available: 8 }, { available: 4 }, { available: 8 }, { available: 4 }], false)
     ).toBe('open')
+  })
+})
+
+function makePositions(available: Record<PositionName, number>): Position[] {
+  return (Object.keys(available) as PositionName[]).map(name => ({
+    name,
+    needed: 0,
+    filled: 0,
+    available: available[name],
+  }))
+}
+
+describe('computeAvailableTeams', () => {
+  it('returns correct count when all positions have ample availability', () => {
+    const positions = makePositions({
+      'Open Spiker': 8, 'Opposite Spiker': 4, 'Middle Blocker': 8, 'Setter': 4,
+    })
+    expect(computeAvailableTeams(positions)).toBe(4)
+  })
+
+  it('returns 0 when any position has 0 available', () => {
+    const positions = makePositions({
+      'Open Spiker': 8, 'Opposite Spiker': 0, 'Middle Blocker': 8, 'Setter': 4,
+    })
+    expect(computeAvailableTeams(positions)).toBe(0)
+  })
+
+  it('returns 1 at exact boundary', () => {
+    const positions = makePositions({
+      'Open Spiker': 2, 'Opposite Spiker': 1, 'Middle Blocker': 2, 'Setter': 1,
+    })
+    expect(computeAvailableTeams(positions)).toBe(1)
+  })
+
+  it('returns the minimum bottleneck', () => {
+    const positions = makePositions({
+      'Open Spiker': 4, 'Opposite Spiker': 1, 'Middle Blocker': 4, 'Setter': 3,
+    })
+    expect(computeAvailableTeams(positions)).toBe(1)
+  })
+
+  it('returns 0 when Open Spiker is 1 (needs 2 per team)', () => {
+    const positions = makePositions({
+      'Open Spiker': 1, 'Opposite Spiker': 4, 'Middle Blocker': 8, 'Setter': 4,
+    })
+    expect(computeAvailableTeams(positions)).toBe(0)
+  })
+
+  it('returns 0 when Middle Blocker is 1 (needs 2 per team)', () => {
+    const positions = makePositions({
+      'Open Spiker': 8, 'Opposite Spiker': 4, 'Middle Blocker': 1, 'Setter': 4,
+    })
+    expect(computeAvailableTeams(positions)).toBe(0)
   })
 })
 

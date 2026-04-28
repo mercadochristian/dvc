@@ -3,6 +3,7 @@
 
 import { useState, type KeyboardEvent } from 'react'
 import { Game } from '@/lib/types'
+import { computeAvailableTeams } from '@/lib/parse'
 import { StatusBadge } from './status-badge'
 import { PositionSlot } from './position-slot'
 
@@ -51,6 +52,7 @@ export function GameCard({
   instagramUrl,
 }: Readonly<GameCardProps>) {
   const { location, city, time, cancelled, status, positions } = game
+  const availableTeams = computeAvailableTeams(positions)
   const isDone = status === 'done'
   const isCollapsible = cancelled || isDone
   const [expanded, setExpanded] = useState(false)
@@ -113,6 +115,37 @@ export function GameCard({
               <PositionSlot key={pos.name} position={pos} />
             ))}
           </div>
+
+          {/* Team registration availability */}
+          <div
+            className={`rounded-[10px] p-2.5 text-center border mb-3 ${
+              availableTeams > 0
+                ? 'bg-[#0f1117] border-[#252840]'
+                : 'bg-[#1c0a0a] border-[#7f1d1d]'
+            }`}
+          >
+            <div className="text-[10px] text-[#64748b] uppercase tracking-wide mb-1">
+              Team Registration
+            </div>
+            {availableTeams > 0 ? (
+              <div
+                className={`text-[22px] font-extrabold leading-none ${
+                  availableTeams <= 2 ? 'text-[#fb923c]' : 'text-[#4ade80]'
+                }`}
+              >
+                {availableTeams}
+              </div>
+            ) : (
+              <div className="text-sm font-bold text-[#f87171]">Full</div>
+            )}
+          </div>
+
+          {/* Availability disclaimer — shown only for active games */}
+          {!isCollapsible && (
+            <p className="text-[10px] text-[#475569] text-center mb-2.5 leading-relaxed">
+              Availability shown may not be up to date. Please confirm with the admin before signing up.
+            </p>
+          )}
 
           {/* Inquiry row — hidden for cancelled and done games */}
           {!isCollapsible && (

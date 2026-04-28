@@ -1,5 +1,5 @@
 // src/lib/parse.ts
-import { GameStatus, PositionName } from './types'
+import { GameStatus, Position, PositionName } from './types'
 
 const TZ = 'Asia/Manila'
 
@@ -102,6 +102,17 @@ export function parseRegistrationTabName(tabName: string): {
     timeZone: TZ,
   })
   return { date: dateStr, location: location.trim(), time: time.trim() }
+}
+
+export function computeAvailableTeams(positions: Position[]): number {
+  const perTeam = computeNeeded(1)
+  return Math.min(
+    ...(Object.keys(perTeam) as PositionName[]).map(name => {
+      const pos = positions.find(p => p.name === name)
+      if (!pos) return 0
+      return Math.floor(pos.available / perTeam[name])
+    })
+  )
 }
 
 export function formatDayLabel(dateStr: string): string {

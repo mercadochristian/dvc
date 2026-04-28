@@ -204,6 +204,7 @@ export default function Page() {
             instagramUrl={instagramUrl}
           />
         ))}
+
       </main>
 
       {/* Footer */}
