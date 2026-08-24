@@ -46,6 +46,8 @@ export default function Page() {
   const [schedule, setSchedule] = useState<WeekSchedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [clearKey, setClearKey] = useState<string | null>(null)
+  const [clearState, setClearState] = useState<'idle' | 'clearing' | 'done' | 'error'>('idle')
 
   const messengerUrl = process.env.NEXT_PUBLIC_CONTACT_MESSENGER_URL ?? '#'
   const instagramUrl = process.env.NEXT_PUBLIC_CONTACT_INSTAGRAM_URL ?? '#'
@@ -70,6 +72,36 @@ export default function Page() {
     if (weekIndex < 0 || weeks.length === 0) return
     await fetchSchedule(weeks[weekIndex].id, { silent: true })
   })
+
+  // On mount: reveal the secret cache-clear button if the URL carries ?clearKey=
+  useEffect(() => {
+    const key = new URLSearchParams(window.location.search).get('clearKey')
+    if (key) setClearKey(key)
+  }, [])
+
+  const handleClearCache = useCallback(async () => {
+    if (!clearKey) return
+    setClearState('clearing')
+    try {
+      const res = await fetch('/api/cache/clear', {
+        method: 'POST',
+        headers: { 'x-cache-key': clearKey },
+      })
+      if (!res.ok) throw new Error('clear failed')
+      setClearState('done')
+      // Re-read weeks + current schedule with the freshly cleared cache
+      const weeksRes = await fetch('/api/weeks')
+      const data: { weeks: WeekInfo[] } = await weeksRes.json()
+      setWeeks(data.weeks)
+      if (weekIndex >= 0 && data.weeks[weekIndex]) {
+        await fetchSchedule(data.weeks[weekIndex].id, { silent: true })
+      }
+      setTimeout(() => setClearState('idle'), 2000)
+    } catch {
+      setClearState('error')
+      setTimeout(() => setClearState('idle'), 2000)
+    }
+  }, [clearKey, weekIndex, fetchSchedule])
 
   // On mount: load available weeks, default to the week containing today (Manila time)
   useEffect(() => {
@@ -208,14 +240,34 @@ export default function Page() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center text-[11px] text-[#334155] py-3 border-t border-[#1e2535] bg-[#13151f]">
-        {lastUpdated
-          ? `Last updated: ${lastUpdated.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Asia/Manila',
-            })} · refreshes every 5 min`
-          : 'Loading...'}
+      <footer className="text-center text-[11px] text-[#334155] py-3 border-t border-[#1e2535] bg-[#13151f] flex flex-col items-center gap-2">
+        <span>
+          {lastUpdated
+            ? `Last updated: ${lastUpdated.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Manila',
+              })} · refreshes every 5 min`
+            : 'Loading...'}
+        </span>
+
+        {/* Secret cache-clear button — only rendered when ?clearKey= is in the URL */}
+        {clearKey && (
+          <button
+            type="button"
+            onClick={handleClearCache}
+            disabled={clearState === 'clearing'}
+            className="cursor-pointer rounded-md border border-[#1e2535] bg-[#0f1117] px-3 py-1.5 text-[11px] font-medium text-[#94a3b8] transition-colors hover:bg-[#1e2535] hover:text-[#f1f5f9] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {clearState === 'clearing'
+              ? 'Clearing cache…'
+              : clearState === 'done'
+                ? 'Cache cleared ✓'
+                : clearState === 'error'
+                  ? 'Failed — check key'
+                  : 'Clear cache'}
+          </button>
+        )}
       </footer>
     </div>
   )

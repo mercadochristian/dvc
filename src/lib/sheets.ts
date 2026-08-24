@@ -40,6 +40,14 @@ function setCached<T>(key: string, data: T): void {
   cache.set(key, { data, expires: Date.now() + CACHE_TTL })
 }
 
+/**
+ * Clear all cached weeks/schedule data so the next request re-reads from
+ * Google Sheets. Used by the secret cache-clear endpoint.
+ */
+export function clearCache(): void {
+  cache.clear()
+}
+
 function getAuthClient() {
   return new google.auth.GoogleAuth({
     credentials: {
