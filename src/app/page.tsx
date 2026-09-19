@@ -1,71 +1,59 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { WeekSchedule, WeekInfo } from '@/lib/types'
-import { parseLocalDate } from '@/lib/parse'
+import { findCurrentWeekIndex } from '@/lib/parse'
 import { WeekNavigator } from '@/components/week-navigator'
 import { DayGroup } from '@/components/day-group'
 import { ContactBar } from '@/components/contact-bar'
 import { usePullToRefresh } from '@/lib/use-pull-to-refresh'
-
-/**
- * Returns the index of the week that contains today (Asia/Manila), or the
- * most recent past week if today is after all known weeks.
- * Falls back to the last index if no firstDate data is available.
- */
-function findCurrentWeekIndex(weeks: WeekInfo[]): number {
-  if (weeks.length === 0) return -1
-
-  const now = new Date()
-  const todayStr = now.toLocaleDateString('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila',
-  })
-  const today = parseLocalDate(todayStr)
-  if (!today) return weeks.length - 1
-
-  // Pick the week whose firstDate is closest to today (past or future).
-  // e.g. if today is Sunday and the next week starts Monday, show next week.
-  let bestIndex = weeks.length - 1
-  let minDiff = Number.POSITIVE_INFINITY
-  for (let i = 0; i < weeks.length; i++) {
-    const first = parseLocalDate(weeks[i].firstDate ?? '')
-    if (!first) continue
-    const diff = Math.abs(first.getTime() - today.getTime())
-    if (diff < minDiff) {
-      minDiff = diff
-      bestIndex = i
-    }
-  }
-  return bestIndex
-}
+import { createScheduleRequestManager } from '@/lib/schedule-request'
 
 export default function Page() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([])
   const [weekIndex, setWeekIndex] = useState<number>(-1)
   const [schedule, setSchedule] = useState<WeekSchedule | null>(null)
   const [loading, setLoading] = useState(true)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [clearKey, setClearKey] = useState<string | null>(null)
   const [clearState, setClearState] = useState<'idle' | 'clearing' | 'done' | 'error'>('idle')
+  const requestManager = useRef<ReturnType<typeof createScheduleRequestManager> | null>(null)
+  if (!requestManager.current) requestManager.current = createScheduleRequestManager()
 
   const messengerUrl = process.env.NEXT_PUBLIC_CONTACT_MESSENGER_URL ?? '#'
   const instagramUrl = process.env.NEXT_PUBLIC_CONTACT_INSTAGRAM_URL ?? '#'
 
   const fetchSchedule = useCallback(
     async (weekId: string, opts?: { silent?: boolean }) => {
-      if (!opts?.silent) setLoading(true)
+      const request = requestManager.current!.start()
+      if (!opts?.silent) {
+        setLoading(true)
+        setScheduleError(null)
+      }
       try {
-        const res = await fetch(`/api/schedule?week=${weekId}`)
+        const res = await fetch(`/api/schedule?week=${encodeURIComponent(weekId)}`, {
+          signal: request.signal,
+        })
+        if (!res.ok) throw new Error('Failed to load schedule')
         const data: WeekSchedule = await res.json()
+        if (!request.isCurrent()) return
         setSchedule(data)
         setLastUpdated(new Date())
+      } catch (error) {
+        if ((error as DOMException).name !== 'AbortError' && request.isCurrent()) {
+          setSchedule(null)
+          setScheduleError('Unable to load this schedule. Please try again.')
+        }
       } finally {
-        if (!opts?.silent) setLoading(false)
+        if (!opts?.silent && request.isCurrent()) setLoading(false)
       }
     },
     [],
   )
+
+  useEffect(() => () => requestManager.current?.abort(), [])
 
   // Pull-to-refresh: swipe down at the top of the page to refetch the current week.
   const { pullDistance, isRefreshing } = usePullToRefresh(async () => {
@@ -223,9 +211,15 @@ export default function Page() {
         )}
 
         {!loading && (!schedule || schedule.days.length === 0) && (
-          <div className="flex items-center justify-center py-16 text-[#64748b] text-sm">
-            No games scheduled for this week.
-          </div>
+          scheduleError ? (
+            <div className="flex items-center justify-center py-16 text-[#f87171] text-sm text-center">
+              {scheduleError}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-16 text-[#64748b] text-sm">
+              No games scheduled for this week.
+            </div>
+          )
         )}
 
         {!loading && schedule && schedule.days.map(day => (

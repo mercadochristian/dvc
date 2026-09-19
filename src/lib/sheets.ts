@@ -18,6 +18,7 @@ import {
   parseRegistrationTabName,
   formatDayLabel,
   isDatePast,
+  parseLocalDate,
 } from './parse'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -88,8 +89,12 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
     }))
     .sort((a, b) => a.weekNumber - b.weekNumber)
 
-  const firstDates = await Promise.all(valid.map(f => getFirstGameDate(f.id)))
-  const result = valid.map((f, i) => ({ ...f, firstDate: firstDates[i] }))
+  const bounds = await Promise.all(valid.map(f => getGameDateBounds(f.id)))
+  const result = valid.map((f, i) => ({
+    ...f,
+    firstDate: bounds[i].first,
+    lastDate: bounds[i].last,
+  }))
   setCached('weeks', result)
   return result
 }
@@ -109,19 +114,32 @@ async function getSheetValues(
 }
 
 /**
- * Read the first game date from a spreadsheet's Game Schedule tab.
- * Returns null if the tab is missing, malformed, or has no data rows.
+ * Read the earliest and latest game dates from a spreadsheet's Game Schedule
+ * tab. Dates are compared chronologically (not by row order) so an unsorted
+ * sheet still yields a correct range. Returns nulls if the tab is missing,
+ * malformed, or has no parseable data rows.
  */
-async function getFirstGameDate(spreadsheetId: string): Promise<string | null> {
+async function getGameDateBounds(
+  spreadsheetId: string
+): Promise<{ first: string | null; last: string | null }> {
   try {
-    const rows = await getSheetValues(spreadsheetId, 'Game Schedule!1:2')
-    if (rows.length < 2) return null
+    const rows = await getSheetValues(spreadsheetId, 'Game Schedule')
+    if (rows.length < 2) return { first: null, last: null }
     const headers = rows[0].map(h => h.toLowerCase().trim())
     const dateCol = headers.indexOf('date')
-    if (dateCol < 0) return null
-    return rows[1][dateCol]?.trim() || null
+    if (dateCol < 0) return { first: null, last: null }
+
+    const dates = rows
+      .slice(1)
+      .map(r => r[dateCol]?.trim() ?? '')
+      .map(raw => ({ raw, parsed: parseLocalDate(raw) }))
+      .filter((d): d is { raw: string; parsed: Date } => d.parsed !== null)
+    if (dates.length === 0) return { first: null, last: null }
+
+    dates.sort((a, b) => a.parsed.getTime() - b.parsed.getTime())
+    return { first: dates[0].raw, last: dates[dates.length - 1].raw }
   } catch {
-    return null
+    return { first: null, last: null }
   }
 }
 

@@ -1,5 +1,5 @@
 // src/lib/parse.ts
-import { GameStatus, Position, PositionName } from './types'
+import { GameStatus, Position, PositionName, WeekInfo } from './types'
 
 const TZ = 'Asia/Manila'
 
@@ -77,6 +77,47 @@ export function buildDateRange(dates: string[]): string {
     last.toLocaleDateString('en-US', { year: 'numeric', timeZone: TZ })
   )
   return `${fmtShort(first)} – ${fmtShort(last)}, ${year}`
+}
+
+/**
+ * Returns the index of the week whose date range (firstDate..lastDate,
+ * inclusive) contains today in Manila time. If today falls in no week's
+ * range, returns the soonest upcoming week; if every week is already in the
+ * past, returns the last (most recent) week. Returns -1 for an empty list.
+ * An optional `now` allows injecting the current time for testing.
+ */
+export function findCurrentWeekIndex(weeks: WeekInfo[], now: Date = new Date()): number {
+  if (weeks.length === 0) return -1
+
+  const todayStr = now.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: TZ,
+  })
+  const today = parseLocalDate(todayStr)
+  if (!today) return weeks.length - 1
+  const todayMs = today.getTime()
+
+  let upcomingIndex = -1
+  let upcomingMs = Number.POSITIVE_INFINITY
+  for (let i = 0; i < weeks.length; i++) {
+    const first = parseLocalDate(weeks[i].firstDate ?? '')
+    if (!first) continue
+    // A week with no lastDate is treated as a single-day week.
+    const last = parseLocalDate(weeks[i].lastDate ?? '') ?? first
+
+    // Today falls within this week's range — this is the current week.
+    if (todayMs >= first.getTime() && todayMs <= last.getTime()) return i
+
+    // Otherwise track the soonest week that starts on or after today.
+    if (first.getTime() >= todayMs && first.getTime() < upcomingMs) {
+      upcomingMs = first.getTime()
+      upcomingIndex = i
+    }
+  }
+
+  return upcomingIndex >= 0 ? upcomingIndex : weeks.length - 1
 }
 
 export function makeGameKey(date: string, location: string, time: string): string {

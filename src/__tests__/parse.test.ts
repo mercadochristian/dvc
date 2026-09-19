@@ -9,8 +9,9 @@ import {
   parseRegistrationTabName,
   formatDayLabel,
   isDatePast,
+  findCurrentWeekIndex,
 } from '@/lib/parse'
-import { Position, PositionName } from '@/lib/types'
+import { Position, PositionName, WeekInfo } from '@/lib/types'
 
 describe('parseWeekNumber', () => {
   it('extracts week number from full sheet name', () => {
@@ -222,5 +223,52 @@ describe('formatDayLabel', () => {
   })
   it('returns uppercase original string if date cannot be parsed', () => {
     expect(formatDayLabel('not-a-date')).toBe('NOT-A-DATE')
+  })
+})
+
+describe('findCurrentWeekIndex', () => {
+  const week = (weekNumber: number, firstDate: string | null, lastDate: string | null): WeekInfo => ({
+    id: `id-${weekNumber}`,
+    weekNumber,
+    name: `Week ${weekNumber}`,
+    firstDate,
+    lastDate,
+  })
+  // Noon UTC keeps the injected day identical in Asia/Manila (UTC+8).
+  const at = (iso: string) => new Date(`${iso}T12:00:00Z`)
+
+  const weeks = [
+    week(38, 'September 15, 2026', 'September 20, 2026'),
+    week(39, 'September 22, 2026', 'September 27, 2026'),
+  ]
+
+  it('returns the week whose range contains today even when the next week starts sooner', () => {
+    // Sep 19 is 4 days from Week 38 start but only 3 from Week 39 start — range must win.
+    expect(findCurrentWeekIndex(weeks, at('2026-09-19'))).toBe(0)
+  })
+
+  it('returns the current week on its last day', () => {
+    expect(findCurrentWeekIndex(weeks, at('2026-09-20'))).toBe(0)
+  })
+
+  it('returns the soonest upcoming week when today falls in a gap between weeks', () => {
+    expect(findCurrentWeekIndex(weeks, at('2026-09-21'))).toBe(1)
+  })
+
+  it('returns the first week when today is before all weeks', () => {
+    expect(findCurrentWeekIndex(weeks, at('2026-09-01'))).toBe(0)
+  })
+
+  it('returns the most recent week when today is after all weeks', () => {
+    expect(findCurrentWeekIndex(weeks, at('2026-10-15'))).toBe(1)
+  })
+
+  it('returns -1 for an empty list', () => {
+    expect(findCurrentWeekIndex([], at('2026-09-19'))).toBe(-1)
+  })
+
+  it('treats a week with no lastDate as a single-day week', () => {
+    const single = [week(40, 'September 29, 2026', null)]
+    expect(findCurrentWeekIndex(single, at('2026-09-29'))).toBe(0)
   })
 })
