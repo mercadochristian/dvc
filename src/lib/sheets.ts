@@ -21,7 +21,14 @@ import {
   parseLocalDate,
 } from './parse'
 
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+// The week list is a Drive lookup that only changes when a new weekly sheet is
+// added (about once a week), so it can be cached aggressively.
+const WEEKS_CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+// Per-week schedules carry the live position-availability counts, so they use a
+// shorter TTL to feel fresh. Caching the week list longer frees quota budget to
+// afford this. The cache is shared across all viewers, so a short TTL still
+// means only one rebuild per week per window regardless of traffic.
+const SCHEDULE_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
 
 interface CacheEntry<T> {
   data: T
@@ -37,8 +44,8 @@ function getCached<T>(key: string): T | null {
   return entry.data as T
 }
 
-function setCached<T>(key: string, data: T): void {
-  cache.set(key, { data, expires: Date.now() + CACHE_TTL })
+function setCached<T>(key: string, data: T, ttl: number): void {
+  cache.set(key, { data, expires: Date.now() + ttl })
 }
 
 /**
@@ -95,7 +102,7 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
     firstDate: bounds[i].first,
     lastDate: bounds[i].last,
   }))
-  setCached('weeks', result)
+  setCached('weeks', result, WEEKS_CACHE_TTL)
   return result
 }
 
@@ -282,6 +289,6 @@ export async function buildWeekSchedule(
     dateRange: buildDateRange(allDates),
     days,
   }
-  setCached(cacheKey, result)
+  setCached(cacheKey, result, SCHEDULE_CACHE_TTL)
   return result
 }
