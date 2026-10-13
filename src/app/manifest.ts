@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'DVC Fun Games',
-    short_name: 'DVC Games',
+    name: 'DVC Court Play',
+    short_name: 'Court Play',
     description:
-      'Check available positions for Dreamers Volleyball Club Fun Games this week.',
+      'Check available positions for Dreamers Volleyball Club Court Play this week.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

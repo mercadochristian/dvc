@@ -88,7 +88,7 @@ export function InstallPrompt() {
             id="install-prompt-title"
             className="text-[15px] font-semibold leading-tight text-[#f1f5f9]"
           >
-            Install DVC Fun Games
+            Install DVC Court Play
           </h2>
           {isIOS ? (
             <p className="mt-1 text-[12px] leading-snug text-[#94a3b8]">

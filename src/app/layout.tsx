@@ -6,13 +6,13 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
-  title: 'DVC Fun Games',
-  description: 'Check available positions for Dreamers Volleyball Club Fun Games this week.',
-  applicationName: 'DVC Fun Games',
+  title: 'DVC Court Play',
+  description: 'Check available positions for Dreamers Volleyball Club Court Play this week.',
+  applicationName: 'DVC Court Play',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'DVC Games',
+    title: 'Court Play',
   },
   icons: {
     icon: [

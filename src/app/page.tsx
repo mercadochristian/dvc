@@ -187,7 +187,7 @@ export default function Page() {
           />
           <div>
             <h1 className="text-[17px] font-bold text-[#f1f5f9] leading-tight">
-              DVC Fun Games
+              DVC Court Play
             </h1>
             <p className="text-[11px] text-[#64748b]">Available positions this week</p>
           </div>
