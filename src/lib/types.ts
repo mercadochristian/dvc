@@ -24,6 +24,7 @@ export interface Position {
 
 export interface Game {
   id: string
+  date: string
   location: string
   city: string
   time: string

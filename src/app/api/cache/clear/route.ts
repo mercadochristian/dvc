@@ -16,7 +16,7 @@ function secretsMatch(a: string, b: string): boolean {
 /**
  * Secret cache-clear endpoint. Requires the caller to pass a key matching
  * CACHE_CLEAR_SECRET (via the `x-cache-key` header or `?key=` query param).
- * Clears the in-memory Google Sheets cache so the next request re-reads fresh.
+ * Expires the shared Google Sheets cache so the next request re-reads fresh.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CACHE_CLEAR_SECRET

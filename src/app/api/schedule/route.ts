@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const weekNumber = weekInfo?.weekNumber ?? 0
 
     const schedule = await buildWeekSchedule(weekId, weekNumber)
-    return NextResponse.json(schedule)
+    return NextResponse.json(schedule, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (err) {
     console.error('[/api/schedule] error:', err)
     return NextResponse.json(

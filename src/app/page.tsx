@@ -9,6 +9,7 @@ import { DayGroup } from '@/components/day-group'
 import { ContactBar } from '@/components/contact-bar'
 import { usePullToRefresh } from '@/lib/use-pull-to-refresh'
 import { createScheduleRequestManager } from '@/lib/schedule-request'
+import { startVisiblePolling } from '@/lib/visible-polling'
 
 export default function Page() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([])
@@ -20,6 +21,7 @@ export default function Page() {
   const [clearKey, setClearKey] = useState<string | null>(null)
   const [clearState, setClearState] = useState<'idle' | 'clearing' | 'done' | 'error'>('idle')
   const requestManager = useRef<ReturnType<typeof createScheduleRequestManager> | null>(null)
+  const scheduleBusy = useRef(false)
   if (!requestManager.current) requestManager.current = createScheduleRequestManager()
 
   const messengerUrl = process.env.NEXT_PUBLIC_CONTACT_MESSENGER_URL ?? '#'
@@ -27,6 +29,8 @@ export default function Page() {
 
   const fetchSchedule = useCallback(
     async (weekId: string, opts?: { silent?: boolean }) => {
+      if (opts?.silent && scheduleBusy.current) return
+      scheduleBusy.current = true
       const request = requestManager.current!.start()
       if (!opts?.silent) {
         setLoading(true)
@@ -35,6 +39,7 @@ export default function Page() {
       try {
         const res = await fetch(`/api/schedule?week=${encodeURIComponent(weekId)}`, {
           signal: request.signal,
+          cache: 'no-store',
         })
         if (!res.ok) throw new Error('Failed to load schedule')
         const data: WeekSchedule = await res.json()
@@ -42,12 +47,15 @@ export default function Page() {
         setSchedule(data)
         setLastUpdated(new Date())
       } catch (error) {
-        if ((error as DOMException).name !== 'AbortError' && request.isCurrent()) {
+        if ((error as DOMException).name !== 'AbortError' && request.isCurrent() && !opts?.silent) {
           setSchedule(null)
           setScheduleError('Unable to load this schedule. Please try again.')
         }
       } finally {
-        if (!opts?.silent && request.isCurrent()) setLoading(false)
+        if (request.isCurrent()) {
+          scheduleBusy.current = false
+          if (!opts?.silent) setLoading(false)
+        }
       }
     },
     [],
@@ -116,13 +124,10 @@ export default function Page() {
     fetchSchedule(weeks[weekIndex].id)
   }, [weekIndex, weeks, fetchSchedule])
 
-  // Auto-refresh every 5 minutes
+  // Visible screens poll the shared cache; a registration webhook expires it.
   useEffect(() => {
     if (weekIndex < 0 || weeks.length === 0) return
-    const interval = setInterval(() => {
-      fetchSchedule(weeks[weekIndex].id)
-    }, 5 * 60 * 1000)
-    return () => clearInterval(interval)
+    return startVisiblePolling(() => fetchSchedule(weeks[weekIndex].id, { silent: true }))
   }, [weekIndex, weeks, fetchSchedule])
 
   const selectedWeek = weeks[weekIndex] ?? null
@@ -222,10 +227,11 @@ export default function Page() {
           )
         )}
 
-        {!loading && schedule && schedule.days.map(day => (
+        {!loading && schedule && selectedWeek && schedule.days.map(day => (
           <DayGroup
-            key={day.date}
+            key={`${selectedWeek.id}:${day.date}`}
             day={day}
+            weekId={selectedWeek.id}
             messengerUrl={messengerUrl}
             instagramUrl={instagramUrl}
           />
@@ -241,7 +247,7 @@ export default function Page() {
                 hour: '2-digit',
                 minute: '2-digit',
                 timeZone: 'Asia/Manila',
-              })} · refreshes every 5 min`
+              })} · refreshes every 15 sec`
             : 'Loading...'}
         </span>
 

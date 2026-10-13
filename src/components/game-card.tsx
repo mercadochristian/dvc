@@ -1,11 +1,14 @@
 // src/components/game-card.tsx
 'use client'
 
-import { useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { Game } from '@/lib/types'
+import type { RegisteredPlayersResponse } from '@/lib/registered-players'
 import { computeAvailableTeams } from '@/lib/parse'
 import { StatusBadge } from './status-badge'
 import { PositionSlot } from './position-slot'
+import { RegisteredPlayersDialog } from './registered-players-dialog'
+import { startVisiblePolling } from '@/lib/visible-polling'
 
 const MessengerIcon = () => (
   <svg viewBox="0 0 24 24" className="w-3 h-3 fill-white shrink-0">
@@ -42,12 +45,14 @@ function ChevronIcon({ expanded }: Readonly<{ expanded: boolean }>) {
 
 interface GameCardProps {
   game: Game
+  weekId: string
   messengerUrl: string
   instagramUrl: string
 }
 
 export function GameCard({
   game,
+  weekId,
   messengerUrl,
   instagramUrl,
 }: Readonly<GameCardProps>) {
@@ -56,10 +61,74 @@ export function GameCard({
   const isDone = status === 'done'
   const isCollapsible = cancelled || isDone
   const [expanded, setExpanded] = useState(false)
+  const [rosterOpen, setRosterOpen] = useState(false)
+  const [rosterLoading, setRosterLoading] = useState(false)
+  const [rosterError, setRosterError] = useState(false)
+  const [rosterData, setRosterData] = useState<RegisteredPlayersResponse | null>(null)
+  const rosterRequest = useRef<AbortController | null>(null)
+  const rosterTrigger = useRef<HTMLButtonElement | null>(null)
   const showDetails = !isCollapsible || expanded
+
+  useEffect(() => () => rosterRequest.current?.abort(), [])
+
+  const loadRoster = useCallback(async (background = false) => {
+    if (background && rosterRequest.current) return
+    rosterRequest.current?.abort()
+    const controller = new AbortController()
+    rosterRequest.current = controller
+    if (!background) {
+      setRosterLoading(true)
+      setRosterError(false)
+      setRosterData(null)
+    }
+
+    const query = new URLSearchParams({
+      week: weekId, date: game.date, location, time,
+    })
+    try {
+      const response = await fetch(`/api/registered-players?${query}`, {
+        signal: controller.signal,
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error('Roster request failed')
+      const data: RegisteredPlayersResponse = await response.json()
+      if (!controller.signal.aborted) {
+        setRosterData(data)
+        setRosterError(false)
+      }
+    } catch {
+      if (!controller.signal.aborted && !background) setRosterError(true)
+    } finally {
+      if (rosterRequest.current === controller) {
+        rosterRequest.current = null
+        if (!controller.signal.aborted) setRosterLoading(false)
+      }
+    }
+  }, [weekId, game.date, location, time])
+
+  useEffect(() => {
+    if (!rosterOpen) return
+    return startVisiblePolling(() => loadRoster(true))
+  }, [rosterOpen, loadRoster])
+
+  const openRoster = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    rosterTrigger.current = event.currentTarget
+    setRosterOpen(true)
+    // Always consult the shared server cache on opening: a submission may have
+    // invalidated it since this browser last opened the modal.
+    void loadRoster()
+  }
+
+  const closeRoster = () => {
+    rosterRequest.current?.abort()
+    setRosterOpen(false)
+    rosterTrigger.current?.focus()
+  }
 
   const toggle = () => setExpanded((v) => !v)
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       toggle()
@@ -115,6 +184,14 @@ export function GameCard({
               <PositionSlot key={pos.name} position={pos} />
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={openRoster}
+            className="mb-3 w-full cursor-pointer rounded-[10px] border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-3 py-2.5 text-center text-[12px] font-semibold text-[#93c5fd] transition-colors hover:border-[#3b82f6] hover:bg-[#3b82f6]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3b82f6]"
+          >
+            View Registered Players
+          </button>
 
           {/* Team registration availability */}
           <div
@@ -179,6 +256,18 @@ export function GameCard({
           )}
         </>
       )}
+      <RegisteredPlayersDialog
+        open={rosterOpen}
+        titleId={`registered-players-${game.id}`}
+        date={game.date}
+        location={location}
+        time={time}
+        loading={rosterLoading}
+        error={rosterError}
+        data={rosterData}
+        onClose={closeRoster}
+        onRetry={() => void loadRoster()}
+      />
     </div>
   )
 }

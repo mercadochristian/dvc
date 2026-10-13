@@ -20,40 +20,32 @@ import {
   isDatePast,
   parseLocalDate,
 } from './parse'
+import {
+  emptyRegisteredPlayerGroups,
+  findRegistrationTab,
+  parseRegisteredPlayers,
+  type RegisteredPlayersResponse,
+} from './registered-players'
+import {
+  cachedSheetRead, invalidateAllSheetCaches, rosterCacheTag, scheduleCacheTag,
+} from './sheet-cache'
 
 // The week list is a Drive lookup that only changes when a new weekly sheet is
 // added (about once a week), so it can be cached aggressively.
-const WEEKS_CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+const WEEKS_CACHE_TTL = 30 * 60 // seconds
 // Per-week schedules carry the live position-availability counts, so they use a
 // shorter TTL to feel fresh. Caching the week list longer frees quota budget to
-// afford this. The cache is shared across all viewers, so a short TTL still
-// means only one rebuild per week per window regardless of traffic.
-const SCHEDULE_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
-
-interface CacheEntry<T> {
-  data: T
-  expires: number
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const cache = new Map<string, CacheEntry<any>>()
-
-function getCached<T>(key: string): T | null {
-  const entry = cache.get(key)
-  if (!entry || Date.now() > entry.expires) return null
-  return entry.data as T
-}
-
-function setCached<T>(key: string, data: T, ttl: number): void {
-  cache.set(key, { data, expires: Date.now() + ttl })
-}
+// afford this. Persistent values are shared across viewers; concurrent reads
+// on the same instance are also coalesced while a cache miss is being loaded.
+const SCHEDULE_CACHE_TTL = 2 * 60 // seconds
+const ROSTER_CACHE_TTL = 60 // seconds
 
 /**
- * Clear all cached weeks/schedule data so the next request re-reads from
- * Google Sheets. Used by the secret cache-clear endpoint.
+ * Expire all persistent Sheets data across Vercel instances.
+ * Used by the secret cache-clear endpoint.
  */
 export function clearCache(): void {
-  cache.clear()
+  invalidateAllSheetCaches()
 }
 
 function getAuthClient() {
@@ -76,9 +68,10 @@ function getAuthClient() {
  * parseable week number.
  */
 export async function searchWeeklySheets(): Promise<WeekInfo[]> {
-  const cached = getCached<WeekInfo[]>('weeks')
-  if (cached) return cached
+  return cachedSheetRead(['dvc-weeks-v2'], ['dvc-weeks'], WEEKS_CACHE_TTL, searchWeeklySheetsUncached)
+}
 
+async function searchWeeklySheetsUncached(): Promise<WeekInfo[]> {
   const auth = getAuthClient()
   const drive = google.drive({ version: 'v3', auth })
   const res = await drive.files.list({
@@ -102,7 +95,6 @@ export async function searchWeeklySheets(): Promise<WeekInfo[]> {
     firstDate: bounds[i].first,
     lastDate: bounds[i].last,
   }))
-  setCached('weeks', result, WEEKS_CACHE_TTL)
   return result
 }
 
@@ -118,6 +110,21 @@ async function getSheetValues(
   const sheets = google.sheets({ version: 'v4', auth })
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range })
   return (res.data.values ?? []) as string[][]
+}
+
+function quoteSheetTab(tabName: string): string {
+  return `'${tabName.replace(/'/g, "''")}'`
+}
+
+/** Read several tabs in one Sheets read request. Results follow ranges order. */
+async function getSheetValueRanges(
+  spreadsheetId: string,
+  ranges: string[],
+): Promise<string[][][]> {
+  const auth = getAuthClient()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const res = await sheets.spreadsheets.values.batchGet({ spreadsheetId, ranges })
+  return (res.data.valueRanges ?? []).map(range => (range.values ?? []) as string[][])
 }
 
 /**
@@ -154,13 +161,39 @@ async function getGameDateBounds(
  * Get all tab (sheet) names in a spreadsheet.
  */
 async function getSheetTabNames(spreadsheetId: string): Promise<string[]> {
-  const auth = getAuthClient()
-  const sheets = google.sheets({ version: 'v4', auth })
-  const res = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets.properties.title',
+  return cachedSheetRead(['dvc-tabs-v2', spreadsheetId], [], SCHEDULE_CACHE_TTL, async () => {
+    const auth = getAuthClient()
+    const sheets = google.sheets({ version: 'v4', auth })
+    const res = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
+    })
+    return (res.data.sheets ?? []).map(s => s.properties?.title ?? '').filter(Boolean)
   })
-  return (res.data.sheets ?? []).map(s => s.properties?.title ?? '').filter(Boolean)
+}
+
+/** Return only first names and positions for one game, on demand. */
+export async function getRegisteredPlayers(
+  spreadsheetId: string,
+  game: { date: string; location: string; time: string },
+): Promise<RegisteredPlayersResponse> {
+  const cacheKey = makeGameKey(game.date, game.location, game.time)
+  return cachedSheetRead(
+    ['dvc-roster-v2', spreadsheetId, cacheKey],
+    [rosterCacheTag(spreadsheetId, game)],
+    ROSTER_CACHE_TTL,
+    async () => {
+      const tabNames = await getSheetTabNames(spreadsheetId)
+      const tabName = findRegistrationTab(tabNames, game.date, game.location, game.time)
+      const groups = tabName
+        ? parseRegisteredPlayers(await getSheetValues(
+            spreadsheetId,
+            quoteSheetTab(tabName),
+          ))
+        : emptyRegisteredPlayerGroups()
+      return { groups, fetchedAt: new Date().toISOString() }
+    },
+  )
 }
 
 /**
@@ -178,14 +211,30 @@ export async function buildWeekSchedule(
   spreadsheetId: string,
   weekNumber: number
 ): Promise<WeekSchedule> {
-  const cacheKey = `schedule:${spreadsheetId}`
-  const cached = getCached<WeekSchedule>(cacheKey)
-  if (cached) return cached
+  return cachedSheetRead(
+    ['dvc-schedule-v2', spreadsheetId, String(weekNumber)],
+    [scheduleCacheTag(spreadsheetId)],
+    SCHEDULE_CACHE_TTL,
+    () => buildWeekScheduleUncached(spreadsheetId, weekNumber),
+  )
+}
+
+async function buildWeekScheduleUncached(
+  spreadsheetId: string,
+  weekNumber: number,
+): Promise<WeekSchedule> {
   // 1. Get all tab names for matching
   const tabNames = await getSheetTabNames(spreadsheetId)
 
-  // 2. Read Game Schedule tab (row 0 = headers, rows 1+ = data)
-  const scheduleValues = await getSheetValues(spreadsheetId, 'Game Schedule')
+  // 2. Read Game Schedule and every registration tab in one values request.
+  const registrationTabs = tabNames.filter(name => parseRegistrationTabName(name) !== null)
+  const [scheduleValues = [], ...registrationValues] = await getSheetValueRanges(
+    spreadsheetId,
+    ['Game Schedule', ...registrationTabs.map(quoteSheetTab)],
+  )
+  const registrationsByTab = new Map(
+    registrationTabs.map((tabName, index) => [tabName, registrationValues[index] ?? []]),
+  )
   if (scheduleValues.length < 2) {
     return { weekNumber, dateRange: '', days: [] }
   }
@@ -240,9 +289,7 @@ export async function buildWeekSchedule(
       'Setter': 0,
     }
     if (matchingTab) {
-      // Wrap tab name in single quotes to handle spaces/special chars
-      const safeRange = `'${matchingTab.replace(/'/g, "\\'")}'`
-      const regValues = await getSheetValues(spreadsheetId, safeRange)
+      const regValues = registrationsByTab.get(matchingTab) ?? []
       if (regValues.length >= 2) {
         // Headers are at row 2 (index 1); row 1 (index 0) is unused/empty
         const regHeaders = regValues[1].map(h => h.toLowerCase().trim())
@@ -272,7 +319,7 @@ export async function buildWeekSchedule(
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
 
-    const game: Game = { id: gameId, location, city, time, cancelled, status, positions }
+    const game: Game = { id: gameId, date, location, city, time, cancelled, status, positions }
 
     if (!dayMap.has(date)) dayMap.set(date, [])
     dayMap.get(date)!.push(game)
@@ -289,6 +336,5 @@ export async function buildWeekSchedule(
     dateRange: buildDateRange(allDates),
     days,
   }
-  setCached(cacheKey, result, SCHEDULE_CACHE_TTL)
   return result
 }
