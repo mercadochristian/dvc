@@ -49,6 +49,9 @@ vi.mock('googleapis', () => ({
 import { buildWeekSchedule, clearCache, getRegisteredPlayers, searchWeeklySheets } from '@/lib/sheets'
 import { invalidateRegistrationCache } from '@/lib/sheet-cache'
 import { revalidateTag } from 'next/cache'
+import { NextRequest } from 'next/server'
+import { GET as getSchedule } from '@/app/api/schedule/route'
+import { GET as getRoster } from '@/app/api/registered-players/route'
 
 const tabA = '01-12-27 - Court A (Tue, 6:00PM-8:00PM)'
 const tabB = '01-13-27 - Court B (Wed, 6:00PM-8:00PM)'
@@ -89,12 +92,63 @@ describe('buildWeekSchedule Google Sheets quota', () => {
   })
 
   it('reads the schedule and registration tabs in one values request', async () => {
-    const schedule = await buildWeekSchedule('week-1', 1)
+    const schedule = await buildWeekSchedule('week-1', 1, 'Week 1 2028')
 
+    expect(schedule.days[0].games[0].date).toBe('January 12, 2027')
     expect(schedule.days[0].games[0].positions.find(p => p.name === 'Setter')?.filled).toBe(1)
     expect(schedule.days[1].games[0].positions.find(p => p.name === 'Open Spiker')?.filled).toBe(1)
     expect(googleCalls.valuesBatchGet).toHaveBeenCalledTimes(1)
     expect(googleCalls.valuesGet).not.toHaveBeenCalled()
+  })
+
+  it('uses the spreadsheet year for yearless bounds, slot counts and the roster request', async () => {
+    vi.stubEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL', 'test@example.com')
+    vi.stubEnv('GOOGLE_PRIVATE_KEY', 'test-key')
+    const yearlessRows = scheduleRows.map((row, index) =>
+      index === 0 ? row : [row[0].replace(', 2027', ''), ...row.slice(1)],
+    )
+    googleCalls.filesList.mockResolvedValue({ data: { files: [
+      { id: 'week-1', name: 'Week 2 2027 - DVC Fun Games Registration (Responses)' },
+    ] } })
+    googleCalls.valuesGet.mockImplementation(({ range }: { range: string }) =>
+      Promise.resolve({ data: { values: range === 'Game Schedule'
+        ? yearlessRows : registrationRows('Ana', 'Setter') } }),
+    )
+    googleCalls.valuesBatchGet.mockResolvedValue({ data: { valueRanges: [
+      { values: yearlessRows },
+      { values: registrationRows('Ana', 'Setter') },
+      { values: registrationRows('Ben', 'Open Spiker') },
+    ] } })
+
+    try {
+      const weeks = await searchWeeklySheets()
+      expect(weeks[0]).toMatchObject({ firstDate: 'January 12, 2027', lastDate: 'January 13, 2027' })
+      const response = await getSchedule(new NextRequest('http://localhost/api/schedule?week=week-1'))
+      expect(response.status).toBe(200)
+      const schedule = await response.json()
+      expect(schedule.dateRange).toBe('Jan 12 – Jan 13, 2027')
+      const game = schedule.days[0].games[0]
+      expect(game.date).toBe('January 12, 2027')
+      expect(game.positions.find((p: { name: string }) => p.name === 'Setter')).toMatchObject({ filled: 1, available: 0 })
+      expect(schedule.days[1].games[0].positions[0].filled).toBe(1)
+
+      const params = new URLSearchParams({ week: 'week-1', date: game.date, location: game.location, time: game.time })
+      const roster = await getRoster(new NextRequest(`http://localhost/api/registered-players?${params}`))
+      expect(roster.status).toBe(200)
+      expect((await roster.json()).groups[3].players).toEqual([{ firstName: 'Ana', count: 1 }])
+      expect(googleCalls.valuesGet).toHaveBeenLastCalledWith({ spreadsheetId: 'week-1', range: `'${tabA}'` })
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('does not guess a year when neither the date nor spreadsheet name supplies one', async () => {
+    googleCalls.valuesBatchGet.mockResolvedValue({ data: { valueRanges: [
+      { values: [scheduleRows[0], ['January 12', ...scheduleRows[1].slice(1)]] },
+    ] } })
+    const schedule = await buildWeekSchedule('week-1', 1, 'Week 1')
+    expect(schedule.days[0].games[0].date).toBe('January 12')
+    expect(schedule.dateRange).toBe('')
   })
 
   it('shares one Sheets read across concurrent schedule requests', async () => {

@@ -68,7 +68,7 @@ function getAuthClient() {
  * parseable week number.
  */
 export async function searchWeeklySheets(): Promise<WeekInfo[]> {
-  return cachedSheetRead(['dvc-weeks-v2'], ['dvc-weeks'], WEEKS_CACHE_TTL, searchWeeklySheetsUncached)
+  return cachedSheetRead(['dvc-weeks-v3'], ['dvc-weeks'], WEEKS_CACHE_TTL, searchWeeklySheetsUncached)
 }
 
 async function searchWeeklySheetsUncached(): Promise<WeekInfo[]> {
@@ -89,7 +89,7 @@ async function searchWeeklySheetsUncached(): Promise<WeekInfo[]> {
     }))
     .sort((a, b) => a.weekNumber - b.weekNumber)
 
-  const bounds = await Promise.all(valid.map(f => getGameDateBounds(f.id)))
+  const bounds = await Promise.all(valid.map(f => getGameDateBounds(f.id, f.name)))
   const result = valid.map((f, i) => ({
     ...f,
     firstDate: bounds[i].first,
@@ -127,6 +127,13 @@ async function getSheetValueRanges(
   return (res.data.valueRanges ?? []).map(range => (range.values ?? []) as string[][])
 }
 
+function normalizeScheduleDate(date: string, sheetName: string): string {
+  const year = sheetName.match(/\b\d{4}\b/)?.[0]
+  // Weekly sheets can omit the year in cells; registration tabs always include it.
+  const fullDate = `${date}, ${year}`
+  return year && parseLocalDate(fullDate) ? fullDate : date
+}
+
 /**
  * Read the earliest and latest game dates from a spreadsheet's Game Schedule
  * tab. Dates are compared chronologically (not by row order) so an unsorted
@@ -134,7 +141,8 @@ async function getSheetValueRanges(
  * malformed, or has no parseable data rows.
  */
 async function getGameDateBounds(
-  spreadsheetId: string
+  spreadsheetId: string,
+  sheetName: string,
 ): Promise<{ first: string | null; last: string | null }> {
   try {
     const rows = await getSheetValues(spreadsheetId, 'Game Schedule')
@@ -145,7 +153,7 @@ async function getGameDateBounds(
 
     const dates = rows
       .slice(1)
-      .map(r => r[dateCol]?.trim() ?? '')
+      .map(r => normalizeScheduleDate(r[dateCol]?.trim() ?? '', sheetName))
       .map(raw => ({ raw, parsed: parseLocalDate(raw) }))
       .filter((d): d is { raw: string; parsed: Date } => d.parsed !== null)
     if (dates.length === 0) return { first: null, last: null }
@@ -209,19 +217,21 @@ export async function getRegisteredPlayers(
  */
 export async function buildWeekSchedule(
   spreadsheetId: string,
-  weekNumber: number
+  weekNumber: number,
+  sheetName = '',
 ): Promise<WeekSchedule> {
   return cachedSheetRead(
-    ['dvc-schedule-v2', spreadsheetId, String(weekNumber)],
+    ['dvc-schedule-v3', spreadsheetId, String(weekNumber), sheetName],
     [scheduleCacheTag(spreadsheetId)],
     SCHEDULE_CACHE_TTL,
-    () => buildWeekScheduleUncached(spreadsheetId, weekNumber),
+    () => buildWeekScheduleUncached(spreadsheetId, weekNumber, sheetName),
   )
 }
 
 async function buildWeekScheduleUncached(
   spreadsheetId: string,
   weekNumber: number,
+  sheetName: string,
 ): Promise<WeekSchedule> {
   // 1. Get all tab names for matching
   const tabNames = await getSheetTabNames(spreadsheetId)
@@ -264,7 +274,7 @@ async function buildWeekScheduleUncached(
   // Map preserves insertion order (= sheet row order = date order)
   const dayMap = new Map<string, Game[]>()
   for (const row of rows) {
-    const date = row[dateCol]?.trim() ?? ''
+    const date = normalizeScheduleDate(row[dateCol]?.trim() ?? '', sheetName)
     const location = row[locationCol]?.trim() ?? ''
     const time = row[timeCol]?.trim() ?? ''
     const teams = Number.parseInt(row[teamsCol] ?? '0', 10) || 0
