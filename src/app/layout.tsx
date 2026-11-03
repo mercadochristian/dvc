@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import './club.css'
 import { InstallPrompt } from '@/components/install-prompt'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
