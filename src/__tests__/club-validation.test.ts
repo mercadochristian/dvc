@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { assetPath, assertSameOrigin, dateWindow, imageType, limitedBody, normalizeEmail, validateAction, validateHold } from '@/lib/club/validation'
-import { canAct } from '@/lib/club/permissions'
+import { assetPath, dateWindow, normalizeEmail, validateAction, validateHold } from '@/features/club/model/validation'
+import { assertSameOrigin, imageType, limitedBody } from '@/features/club/server/http'
+import { canAct } from '@/features/club/model/permissions'
 const id = '11111111-1111-4111-8111-111111111111'
-const hold = { level:'intermediate', age:25, gender:'prefer_not_to_say', game_id: id, kind: 'individual', position: 'setter', name: ' Ana ', contact: 'ana@example.com' }
+const hold = { level:'intermediate', birth_date:'2000-02-29',first_timer:true, gender:'prefer_not_to_say', game_id: id, kind: 'individual', position: 'setter', name: ' Ana ', contact: 'ana@example.com' }
 describe('registration validation', () => {
   it('normalizes player names', () => expect(validateHold(hold).name).toBe('Ana'))
   it('accepts a six-player team', () => expect(validateHold({ ...hold, kind: 'team' }).kind).toBe('team'))

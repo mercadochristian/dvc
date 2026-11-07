@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
-import { clearCache } from '@/lib/sheets'
+import { clearCache } from '@/features/legacy-schedule/server/sheets'
 
 /**
  * Constant-time string comparison. Returns false on any length mismatch

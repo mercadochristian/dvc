@@ -46,8 +46,8 @@ vi.mock('googleapis', () => ({
   },
 }))
 
-import { buildWeekSchedule, clearCache, getRegisteredPlayers, searchWeeklySheets } from '@/lib/sheets'
-import { invalidateRegistrationCache } from '@/lib/sheet-cache'
+import { buildWeekSchedule, clearCache, getRegisteredPlayers, searchWeeklySheets } from '@/features/legacy-schedule/server/sheets'
+import { invalidateRegistrationCache } from '@/features/legacy-schedule/server/sheet-cache'
 import { revalidateTag } from 'next/cache'
 import { NextRequest } from 'next/server'
 import { GET as getSchedule } from '@/app/api/schedule/route'

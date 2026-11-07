@@ -1,0 +1,6 @@
+'use client'
+import { addDays, dateLabel, manilaDate, timeLabel } from '@/features/club/model/format'
+import type { ClubGame } from '@/features/club/model/types'
+export function GameCalendar({ from, games, select, day = 'all' }: { from: string; games: ClubGame[]; select: (game: ClubGame) => void; day?: string }) {
+  return <div className="club-calendar" aria-label="Weekly game calendar">{Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter(date => day === 'all' || date === day).map(date => <section className="club-calendar-day" key={date}><h2>{dateLabel(date + 'T12:00:00+08:00')}</h2>{games.filter(g => manilaDate(new Date(g.starts_at)) === date).sort((a,b) => a.starts_at.localeCompare(b.starts_at)).map(game => { const total = game.positions.reduce((n,p) => n+p.available,0); return <button className="club-calendar-game" key={game.id} onClick={() => select(game)}><strong>{timeLabel(game.starts_at)}–{timeLabel(game.ends_at)}</strong><span>{game.venue}</span><small>{game.status === 'published' ? `${total} slots available` : game.status}</small></button> })}{!games.some(g => manilaDate(new Date(g.starts_at)) === date) && <p className="club-note">No games</p>}</section>)}</div>
+}

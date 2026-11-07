@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { startVisiblePolling } from '@/lib/visible-polling'
+import { startVisiblePolling } from '@/features/legacy-schedule/model/visible-polling'
 
 describe('visible polling', () => {
   let visibility: 'visible' | 'hidden'

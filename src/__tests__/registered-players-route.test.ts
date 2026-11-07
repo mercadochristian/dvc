@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-vi.mock('@/lib/sheets', () => ({
+vi.mock('@/features/legacy-schedule/server/sheets', () => ({
   searchWeeklySheets: vi.fn(),
   getRegisteredPlayers: vi.fn(),
 }))
 
-import { searchWeeklySheets, getRegisteredPlayers } from '@/lib/sheets'
+import { searchWeeklySheets, getRegisteredPlayers } from '@/features/legacy-schedule/server/sheets'
 import { GET } from '@/app/api/registered-players/route'
 
 const request = (query: string) =>

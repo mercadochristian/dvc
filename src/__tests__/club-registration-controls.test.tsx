@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Registration } from '@/components/club/registration'
-import { POSITIONS, type ClubGame, type ClubSession } from '@/lib/club/types'
+import { Registration } from '@/features/club/ui/registration/registration'
+import { POSITIONS, type ClubGame, type ClubSession } from '@/features/club/model/types'
 
 const game: ClubGame = {
   id: '11111111-1111-4111-8111-111111111111', venue: 'Fixture Court', city: 'Makati',

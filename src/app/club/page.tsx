@@ -1,2 +1,5 @@
-import { ClubApp } from '@/components/club/app'
-export default function Page() { return <ClubApp /> }
+import { ClubApp } from '@/features/club/ui/shell/app'
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  return <ClubApp initialView={(await searchParams).view === 'bookings' ? 'bookings' : 'games'} />
+}

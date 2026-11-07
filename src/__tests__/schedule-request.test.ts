@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createScheduleRequestManager } from '@/lib/schedule-request'
+import { createScheduleRequestManager } from '@/features/legacy-schedule/model/schedule-request'
 
 describe('createScheduleRequestManager', () => {
   it('aborts the previous request when a new request starts', () => {

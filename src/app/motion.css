@@ -1,0 +1,104 @@
+/* Shared motion: quick control feedback, gentle overlays, no page-load choreography. */
+:root {
+  --dvc-motion-feedback: 140ms;
+  --dvc-motion-arrival: 240ms;
+  --dvc-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.club-app .club-button {
+  transition: background-color var(--dvc-motion-feedback) ease-out,
+    border-color var(--dvc-motion-feedback) ease-out,
+    color var(--dvc-motion-feedback) ease-out,
+    transform var(--dvc-motion-feedback) var(--dvc-motion-ease);
+}
+
+.club-button:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.98);
+}
+
+.club-app :is(input, select, textarea),
+.club-choice label,
+.club-player-chip,
+.club-team-slot {
+  transition: border-color var(--dvc-motion-feedback) ease-out,
+    background-color var(--dvc-motion-feedback) ease-out,
+    color var(--dvc-motion-feedback) ease-out;
+}
+
+/* Selection stays anchored to its game; the dock acknowledges the new next step. */
+.club-selection-dock,
+.club-toast {
+  animation: dvc-arrive var(--dvc-motion-arrival) var(--dvc-motion-ease);
+}
+
+dialog[open] {
+  animation: dvc-dialog-arrive var(--dvc-motion-arrival) var(--dvc-motion-ease);
+}
+
+dialog[open]::backdrop {
+  animation: dvc-fade 180ms ease-out;
+}
+
+.club-error,
+.club-warning {
+  animation: dvc-fade 160ms ease-out;
+}
+
+/* These surfaces can close immediately so focus and hit targets never linger. */
+.club-filter-panel[data-pointer-entry="true"]:not([hidden]),
+.club-more-actions-menu[data-pointer-entry]:popover-open {
+  transition: opacity var(--dvc-motion-feedback) var(--dvc-motion-ease),
+    transform var(--dvc-motion-feedback) var(--dvc-motion-ease);
+}
+
+@starting-style {
+  .club-filter-panel[data-pointer-entry="true"]:not([hidden]),
+  .club-more-actions-menu[data-pointer-entry]:popover-open {
+    opacity: 0.75;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .club-more-actions-menu[data-pointer-entry]:popover-open { transform: translateY(-4px); }
+  }
+}
+
+@keyframes dvc-arrive {
+  from { opacity: 0.7; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dvc-dialog-arrive {
+  from { opacity: 0.7; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dvc-fade {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+/* Legacy schedule retains its own palette while sharing short feedback timings. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-scroll-reveal] :is(button, a) {
+    transition-duration: var(--dvc-motion-feedback);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Also cover legacy Tailwind spinners, pulses, chevrons and pull-to-refresh. */
+  body *, body *::before, body *::after, body *::backdrop {
+    animation: none !important;
+    transition-property: color, background-color, border-color, opacity !important;
+    transition-duration: 80ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .club-button:active:not(:disabled):not([aria-disabled="true"]) { transform: none; }
+  dialog[open], dialog[open]::backdrop, .club-toast, .club-selection-dock, .club-error, .club-warning {
+    animation: dvc-fade 80ms ease-out !important;
+  }
+}
+
+@media print {
+  body *, body *::before, body *::after, body *::backdrop { animation: none !important; transition: none !important; }
+}

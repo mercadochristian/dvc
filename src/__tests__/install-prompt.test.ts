@@ -4,7 +4,7 @@ import {
   markDismissed,
   DISMISS_KEY,
   DISMISS_DAYS,
-} from '@/lib/install-prompt'
+} from '@/features/pwa/dismissal'
 
 describe('install-prompt helpers', () => {
   beforeEach(() => {

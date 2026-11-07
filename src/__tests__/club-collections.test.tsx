@@ -1,11 +1,15 @@
 import { describe,expect,it,vi,afterEach } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { matchesSearch,paymentState,selectGames,selectRegistrations } from '@/lib/club/collections'
-import { CollectionTable } from '@/components/club/collection'
-import { GameTable } from '@/components/club/game-table'
-import { AccessTable,PaymentsTable,PaymentMethodsTable } from '@/components/club/staff-tables'
-import { Modal } from '@/components/club/primitives'
-import type { Booking,ClubGame,SupportRegistration } from '@/lib/club/types'
+import { matchesSearch,paymentState,selectGames,selectRegistrations } from '@/features/club/model/collections'
+import { CollectionTable } from '@/features/club/ui/shared/collection'
+import { CursorPagination } from '@/features/club/ui/shared/cursor-pagination'
+import { GameTable } from '@/features/club/ui/games/game-table'
+import { AccessTable } from '@/features/club/ui/management/access-table'
+import { PaymentsTable } from '@/features/club/ui/management/payments-table'
+import { PlayerSupport } from '@/features/club/ui/registration/player-support'
+import { PaymentMethodsTable } from '@/features/club/ui/management/payment-methods-table'
+import { Modal } from '@/features/club/ui/shared/primitives'
+import type { Booking,ClubGame,SupportRegistration } from '@/features/club/model/types'
 const games:ClubGame[]=[{id:'late',venue:'North Court',city:'Pasig',starts_at:'2099-11-09T10:00:00Z',ends_at:'2099-11-09T13:00:00Z',status:'published',team_price:165000,positions:[{position:'setter',capacity:4,available:3,price:25000}]},{id:'early',venue:'Riverside Court',city:'Makati',starts_at:'2099-11-04T10:00:00Z',ends_at:'2099-11-04T13:00:00Z',status:'draft',team_price:165000,positions:[]}]
 const booking:Booking={id:'b',game_id:'late',captain_name:'Mara Santos',contact:'sample@example.invalid',kind:'individual',amount:25000,status:'reserved',payment_status:'pending',created_at:'2026-11-01',expires_at:'2026-11-01',receipt:null}
 const rows:SupportRegistration[]=[{id:'a',game_id:'late',captain_name:'Mara Santos',contact:'sample@example.invalid',kind:'individual',status:'reserved'},{id:'b',game_id:'early',captain_name:'Luis Reyes',contact:'luis@example.invalid',kind:'team',status:'cancelled'}]
@@ -34,8 +38,20 @@ describe('table and dialog semantics',()=>{
  it('renders a useful empty result instead of an empty table',()=>expect(renderToStaticMarkup(<CollectionTable label="Records" headings={['Name']} count={0} empty="No results">{null}</CollectionTable>)).toContain('No results'))
  it('gives nested-capable dialogs distinct title IDs',()=>{const html=renderToStaticMarkup(<><Modal title="One" close={noop}>One</Modal><Modal title="Two" close={noop}>Two</Modal></>);const ids=[...html.matchAll(/aria-labelledby="([^"]+)"/g)].map(m=>m[1]);expect(new Set(ids).size).toBe(2)})
  it('shows position prices before registration in table view',()=>expect(renderToStaticMarkup(<GameTable games={[games[0]]} register={noop} players={noop}/>)).toContain('₱250'))
- it('disables registration for a closed game',()=>expect(renderToStaticMarkup(<GameTable games={[games[1]]} register={noop} players={noop}/>)).toMatch(/<button[^>]*disabled=""[^>]*>Closed<\/button>/))
+ it('disables registration for a closed game',()=>expect(renderToStaticMarkup(<GameTable games={[games[1]]} register={noop} players={noop}/>)).toMatch(/<button[^>]*disabled=""[^>]*>Draft<\/button>/))
  it('preserves cancellation status when switching layouts',()=>expect(renderToStaticMarkup(<GameTable games={[{...games[0],status:'cancelled'}]} register={noop} players={noop}/>)).toContain('>Cancelled</span>'))
+ it('omits redundant game selection and columns for game-scoped payments and registrations', () => {
+  const payments = renderToStaticMarkup(<PaymentsTable scoped bookings={[booking]} games={[games[0]]} methods={[]} busy={false} action={action} transfer={noop} saved={noop} />)
+  const registrations = renderToStaticMarkup(<PlayerSupport scoped workspace={{ role: 'coordinator', games: [games[0]], roster: [], support: [rows[0]] }} busy={false} action={action} />)
+  expect(payments).not.toContain('aria-label="Payment game"')
+  expect(registrations).not.toContain('aria-label="Registration game"')
+  for (const html of [payments, registrations]) {
+   expect(html).not.toContain('data-label="Game"')
+   expect(html).not.toContain('Add filter')
+   expect(html).toContain('<select')
+   expect(html).toContain('Mara Santos')
+  }
+ })
  it('does not offer a rejected filter on active reservations',()=>expect(renderToStaticMarkup(<PaymentsTable bookings={[{...booking,status:'rejected',payment_status:'rejected'}]} games={games} methods={[]} busy={false} action={action} transfer={noop} saved={noop}/>)).not.toContain('<option value="rejected">'))
  it('disables registration when all positions are full',()=>expect(renderToStaticMarkup(<GameTable games={[{...games[0],positions:[]}]} register={noop} players={noop}/>)).toMatch(/<button[^>]*disabled=""[^>]*>Full<\/button>/))
  it('retains public player actions for a full game',()=>expect(renderToStaticMarkup(<GameTable games={[{...games[0],positions:[]}]} register={noop} players={noop}/>)).toContain('>Players</button>'))
@@ -45,4 +61,30 @@ describe('table and dialog semantics',()=>{
  it('keeps protected Developer access edits disabled for administrators',()=>expect(renderToStaticMarkup(<AccessTable entries={[{id:'d',email:'owner@example.invalid',role:'developer',enabled:true}]} developer={false} busy={false} action={action}/>)).toMatch(/<button[^>]*disabled=""[^>]*>Edit<\/button>/))
  it('allows a Developer to open its access editor',()=>expect(renderToStaticMarkup(<AccessTable entries={[{id:'d',email:'owner@example.invalid',role:'developer',enabled:true}]} developer busy={false} action={action}/>)).not.toMatch(/<button[^>]*disabled=""[^>]*>Edit<\/button>/))
  it('keeps a clear first-run payment method action',()=>expect(renderToStaticMarkup(<PaymentMethodsTable methods={[]} edit={noop}/>)).toContain('Add payment method'))
+})
+
+describe('cursor pagination footer', () => {
+  it('keeps result context and hides controls on a single page without a total', () => {
+    const html = renderToStaticMarkup(<CursorPagination label="User pages" pageNumber={1} pageSize={25} rowCount={3} />)
+    expect(html).toContain('Showing 1–3')
+    expect(html).not.toContain(' of ')
+    expect(html).not.toContain('<button')
+  })
+
+  it('uses the actual row count on a partial final page and leaves Previous available', () => {
+    const html = renderToStaticMarkup(<CursorPagination label="Payment pages" pageNumber={3} pageSize={25} rowCount={4}
+      total={54} previous={noop} />)
+    expect(html).toContain('Showing 51–54 of 54')
+    expect(html).toMatch(/aria-disabled="false"[^>]*>.*?Previous/)
+    expect(html).toMatch(/aria-disabled="true"[^>]*>.*?Next/)
+  })
+
+  it('retains the Previous control below an empty page for recovery', () => {
+    const html = renderToStaticMarkup(<CollectionTable label="Payments" headings={['Amount']} count={0}
+      footer={<CursorPagination label="Payment pages" pageNumber={2} pageSize={25} rowCount={0} previous={noop} />}>
+      {null}
+    </CollectionTable>)
+    expect(html).toContain('No matching records.')
+    expect(html).toMatch(/aria-disabled="false"[^>]*>.*?Previous/)
+  })
 })

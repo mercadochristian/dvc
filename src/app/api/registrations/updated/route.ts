@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { parseRegistrationTabName } from '@/lib/parse'
-import { invalidateRegistrationCache } from '@/lib/sheet-cache'
+import { parseRegistrationTabName } from '@/features/legacy-schedule/model/parse'
+import { invalidateRegistrationCache } from '@/features/legacy-schedule/server/sheet-cache'
 
 export async function POST(request: NextRequest) {
   const secret = process.env.REGISTRATION_WEBHOOK_SECRET

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRegisteredPlayers, searchWeeklySheets } from '@/lib/sheets'
-import { parseLocalDate } from '@/lib/parse'
+import { getRegisteredPlayers, searchWeeklySheets } from '@/features/legacy-schedule/server/sheets'
+import { parseLocalDate } from '@/features/legacy-schedule/model/parse'
 
 export async function GET(request: NextRequest) {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {

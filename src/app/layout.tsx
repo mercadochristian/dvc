@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import './club.css'
-import { InstallPrompt } from '@/components/install-prompt'
+import { InstallPrompt } from '@/features/pwa/install-prompt'
+import { ScrollReveals } from '@/features/motion/scroll-reveals'
+import './motion.css'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
@@ -37,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="antialiased">
         {children}
         <InstallPrompt />
+        <ScrollReveals />
       </body>
     </html>
   )

@@ -1,0 +1,33 @@
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 4px 12px;
+  min-height: 44px;
+  border-top: 1px solid var(--club-line);
+  color: var(--club-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+.controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.controls button[aria-disabled='true'] {
+  opacity: .55;
+  cursor: default;
+}

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('next/headers',()=>({cookies:vi.fn()}))
-import { seal, unseal, identity, guard } from '@/lib/club/server'
+import { seal, unseal, identity, guard } from '@/features/club/server/gateway'
 import { cookies } from 'next/headers'
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.clearAllMocks()})
 describe('server session encryption',()=>{

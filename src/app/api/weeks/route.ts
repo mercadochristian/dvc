@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { searchWeeklySheets } from '@/lib/sheets'
+import { searchWeeklySheets } from '@/features/legacy-schedule/server/sheets'
 
 export async function GET() {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {

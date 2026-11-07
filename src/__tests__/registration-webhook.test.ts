@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-vi.mock('@/lib/sheet-cache', () => ({ invalidateRegistrationCache: vi.fn() }))
-import { invalidateRegistrationCache } from '@/lib/sheet-cache'
+vi.mock('@/features/legacy-schedule/server/sheet-cache', () => ({ invalidateRegistrationCache: vi.fn() }))
+import { invalidateRegistrationCache } from '@/features/legacy-schedule/server/sheet-cache'
 import { POST } from '@/app/api/registrations/updated/route'
 
 const spreadsheetId = 'published-week-123'

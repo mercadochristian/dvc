@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { GameCard } from '@/components/game-card'
-import type { Game } from '@/lib/types'
+import { GameCard } from '@/features/legacy-schedule/ui/game-card'
+import type { Game } from '@/features/legacy-schedule/model/types'
 
 const game: Game = {
   id: 'game-1',

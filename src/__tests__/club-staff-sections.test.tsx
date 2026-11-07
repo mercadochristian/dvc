@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { PaymentReview, StaffGames, StaffRoster } from '@/components/club/staff-sections'
-import { GameEditor, ManualRegistration } from '@/components/club/staff-forms'
-import { POSITIONS, type Booking, type ClubGame, type Workspace } from '@/lib/club/types'
+import { Transfer } from '@/features/club/ui/games/booking-transfer'
+import { PaymentReview } from '@/features/club/ui/management/payment-review'
+import { StaffGames } from '@/features/club/ui/games/staff-games'
+import { StaffRoster } from '@/features/club/ui/lineups/lineup-board'
+import { GameEditor } from '@/features/club/ui/games/game-editor'
+import { ManualRegistration } from '@/features/club/ui/registration/manual-registration'
+import { POSITIONS, type Booking, type ClubGame, type Workspace } from '@/features/club/model/types'
 
 const game: ClubGame = {
   id: '11111111-1111-4111-8111-111111111111', venue: 'Fixture Court', city: 'Makati',
@@ -38,7 +42,26 @@ describe('staff roster and payment controls', () => {
   it('offers approval only for pending submitted receipts', () => expect(payment()).toContain('>Approve</button>'))
   it('does not re-offer approval after review', () => expect(payment({ ...booking, payment_status: 'approved' })).not.toContain('>Approve</button>'))
   it('does not offer approval without a receipt', () => expect(payment({ ...booking, receipt: null })).not.toContain('>Approve</button>'))
+  it('offers receipt attachment only on manual reservations', () => {
+    expect(payment({ ...booking, receipt: null, manual: true })).toContain('>Add receipt</button>')
+    expect(payment({ ...booking, receipt: null, manual: false })).not.toContain('>Add receipt</button>')
+  })
   it('preserves receipt links', () => expect(payment()).toContain('/api/club/asset?kind=receipt&amp;id=booking'))
+  it('shows the shared receipt for an approved checkout without legacy receipt actions', () => {
+    const html = payment({ ...booking, kind: 'group', checkout_id: 'shared-checkout', receipt: null, payment_status: 'approved' })
+    expect(html).toContain('/api/club/asset?kind=checkout_receipt&amp;id=shared-checkout')
+    expect(html).toContain('Group registration')
+    expect(html).not.toMatch(/>Add receipt<|>Approve<|>Reject</)
+  })
+  it('requires an explicit destination and excludes the current game', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-01T00:00:00Z'))
+    const destination = { ...game, id: 'destination' }
+    const html = renderToStaticMarkup(<Transfer booking={booking} games={[game, destination]} close={noop} saved={noop} />)
+    expect(html).not.toContain(`<option value="${game.id}"`)
+    expect(html).toContain('<option value="destination">')
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Transfer booking<\/button>/)
+  })
   it('keeps transfer available separately from review', () => expect(payment()).toContain('>Transfer</button>'))
 })
 describe('staff editor data', () => {

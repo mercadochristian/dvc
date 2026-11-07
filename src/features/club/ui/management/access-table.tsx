@@ -1,0 +1,14 @@
+'use client'
+import { useState } from 'react'
+import { matchesSearch } from '@/features/club/model/collections'
+import type { AccessEntry } from '@/features/club/model/types'
+import { CollectionTable, CollectionTools, RecordStatus, SearchField } from '../shared/collection'
+import { ErrorNotice, Modal } from '../shared/primitives'
+import { AccessForm } from './access-form'
+type Action=(name:string,data:unknown)=>Promise<boolean|void>
+const ROLE_LABEL={developer:'Developer',admin:'Administrator',coordinator:'Coordinator',facilitator:'Facilitator'}
+export function AccessTable({entries,developer,busy,action,actionError}:{entries:AccessEntry[];developer:boolean;busy:boolean;action:Action;actionError?:unknown}) {
+  const [query,setQuery]=useState(''),[role,setRole]=useState(''),[editing,setEditing]=useState<AccessEntry|'new'|null>(null),[error,setError]=useState<unknown>(null),[attempted,setAttempted]=useState(false)
+  const rows=entries.filter(e=>matchesSearch(query,e.email)&&(!role||e.role===role))
+  return <><div className="club-section-heading"><h2>Team access</h2><button className="club-button primary" onClick={()=>{setError(null);setAttempted(false);setEditing('new')}}>Add email</button></div><p className="club-section-note">Verified emails receive these roles. Everyone else is a player.</p><CollectionTools count={rows.length} noun="emails"><SearchField label="Search staff emails" placeholder="Search email" value={query} change={setQuery}/><select aria-label="Staff role" value={role} onChange={e=>setRole(e.target.value)}><option value="">All roles</option>{Object.entries(ROLE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></CollectionTools><CollectionTable label="Staff access" headings={['Email','Role','Account','Access','Actions']} count={rows.length}>{rows.map(entry=><tr key={entry.id}><td data-label="Email"><strong>{entry.email}</strong></td><td data-label="Role">{ROLE_LABEL[entry.role]}</td><td data-label="Account">{entry.registered?'Registered':'Not yet registered'}</td><td data-label="Access"><RecordStatus value={entry.enabled?'enabled':'disabled'}/></td><td data-label="Actions"><button className="club-button" disabled={busy||(entry.role==='developer'&&!developer)} onClick={()=>{setError(null);setAttempted(false);setEditing(entry)}}>Edit</button></td></tr>)}</CollectionTable>{editing&&<Modal title={editing==='new'?'Add staff email':'Edit staff access'} close={()=>setEditing(null)}><ErrorNotice error={attempted?(actionError||error):null}/><AccessForm entry={editing==='new'?undefined:editing} developer={developer} busy={busy} save={data=>{setError(null);setAttempted(true);void action('access.save',data).then(ok=>{if(ok!==false)setEditing(null);else setError(new Error('Access was not saved. Check the workspace message and try again.'))}).catch(setError)}}/></Modal>}</>
+}

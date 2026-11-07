@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { RegisteredPlayersDialog } from '@/components/registered-players-dialog'
+import { RegisteredPlayersDialog } from '@/features/legacy-schedule/ui/registered-players-dialog'
 
 const baseProps = {
   open: true,

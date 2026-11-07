@@ -10,8 +10,8 @@ import {
   formatDayLabel,
   isDatePast,
   findCurrentWeekIndex,
-} from '@/lib/parse'
-import { Position, PositionName, WeekInfo } from '@/lib/types'
+} from '@/features/legacy-schedule/model/parse'
+import { Position, PositionName, WeekInfo } from '@/features/legacy-schedule/model/types'
 
 describe('parseWeekNumber', () => {
   it('extracts week number from full sheet name', () => {

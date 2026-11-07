@@ -1,0 +1,76 @@
+# Template for the explicitly prepared, isolated QA workdir; never replace the
+# ordinary development config. Generate project_id from scripts/e2e/target-guard.mjs.
+# Set the three DVC_QA_* values to unique local values outside Git before starting.
+# Use a dedicated Docker bridge with host_binding_ipv4=127.0.0.1 and --network-id.
+# Docker internal-only networks do not publish usable host ports under OrbStack.
+project_id = "REPLACE_WITH_DERIVED_PROJECT_ID"
+
+[api]
+enabled = true
+port = 54331
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+auto_expose_new_tables = false
+
+[db]
+port = 54332
+shadow_port = 54330
+major_version = 17
+health_timeout = "2m"
+
+[db.pooler]
+enabled = false
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+sql_paths = []
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[local_smtp]
+enabled = true
+port = 54334
+
+[storage]
+enabled = true
+file_size_limit = "3MiB"
+
+[storage.s3_protocol]
+enabled = false
+
+[storage.vector]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3317"
+additional_redirect_urls = ["http://127.0.0.1:3317/api/club/auth**"]
+jwt_secret = "env(DVC_QA_JWT_SECRET)"
+anon_key = "env(DVC_QA_ANON_KEY)"
+service_role_key = "env(DVC_QA_SERVICE_ROLE_KEY)"
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+minimum_password_length = 12
+
+[auth.email]
+enabled = true
+enable_confirmations = false
+
+[auth.sms]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

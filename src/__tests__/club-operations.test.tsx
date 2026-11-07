@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { canAct, isAdministrator, managesLineups } from '@/lib/club/permissions'
-import { canPlace, TEAM_POSITIONS, teammateSlots, teammatesFrom } from '@/lib/club/lineup'
-import { validateAction, validateHold } from '@/lib/club/validation'
-import { AccessForm, StaffGames } from '@/components/club/staff-sections'
-import { FaciAssignments, PlayerSupport } from '@/components/club/operations'
-import { Warning } from '@/components/club/primitives'
-import type { RosterEntry, StaffRole, Workspace } from '@/lib/club/types'
+import { canAct, isAdministrator, managesLineups } from '@/features/club/model/permissions'
+import { canPlace, TEAM_POSITIONS, teammateSlots, teammatesFrom } from '@/features/club/model/lineup'
+import { validateAction, validateHold } from '@/features/club/model/validation'
+import { AccessForm } from '@/features/club/ui/management/access-form'
+import { StaffGames } from '@/features/club/ui/games/staff-games'
+import { GameOperationModal } from '@/features/club/ui/games/game-management'
+import { PlayerSupport } from '@/features/club/ui/registration/player-support'
+import { Warning } from '@/features/club/ui/shared/primitives'
+import type { RosterEntry, StaffRole, Workspace } from '@/features/club/model/types'
 const id='11111111-1111-4111-8111-111111111111'
-const profile={level:'intermediate',age:25,gender:'prefer_not_to_say'}
+const profile={level:'intermediate',birth_date:'2000-02-29',first_timer:true,gender:'prefer_not_to_say'}
 const base={...profile,game_id:id,kind:'team',position:'setter',name:'Registrant',contact:'test@example.test'}
 const player: RosterEntry={id:'one',booking_id:'b1',name:'Ana',position:'setter',team:null,kind:'individual'}
 const workspace:Workspace={role:'facilitator',games:[],roster:[]}
@@ -45,6 +47,13 @@ describe('lineup placement',()=>{
  it('cannot move a whole registered team to unassigned',()=>expect(canPlace([],{...player,kind:'team'},null)).toBe(false))
  it('cannot merge two registered teams',()=>expect(canPlace([{...player,id:'other',team:1,booking_id:'b2'}],{...player,kind:'team'},1)).toBe(false))
  it('allows moving a whole team to an empty team',()=>expect(canPlace([],{...player,kind:'team'},2)).toBe(true))
+ it('allows the assigned core to move while an extra stays unassigned',()=>{
+   const core = TEAM_POSITIONS.map((position,index)=>({...player,id:`core-${index}`,position,team:1,kind:'team'}))
+   const extra = {...core[0],id:'extra',team:null}
+   const entries = [...core,extra]
+   expect(canPlace(entries,core[0],2)).toBe(true)
+   expect(canPlace(entries,extra,2)).toBe(false)
+ })
 })
 describe('operation payload boundaries',()=>{
  it('rejects another user on self-volunteering',()=>expect(()=>validateAction('faci.self',{game_id:id,user_id:id,enabled:true})).toThrow('Self-assignment'))
@@ -55,12 +64,34 @@ describe('operation payload boundaries',()=>{
  it('preserves a stale-lineup precondition',()=>expect(validateAction('roster.update',{expected_version:0,id,name:'Ana',team:1,expected_team:null})).toHaveProperty('expected_team',null))
  it('renders warnings as persistent alerts',()=>expect(renderToStaticMarkup(<Warning>Review this</Warning>)).toContain('role="alert"'))
  it('empty support state has a manual registration action',()=>expect(renderToStaticMarkup(<PlayerSupport workspace={{...workspace,role:'coordinator'}} busy={false} action={save} add={noop}/>)).toContain('Add registration'))
- it('empty facilitator schedule explains the state',()=>expect(renderToStaticMarkup(<FaciAssignments workspace={workspace} userId={id} busy={false} action={save}/>)).toContain('No upcoming published games.'))
 })
 
-describe('Faci assignment availability',()=>{
+describe('game-scoped operation dialogs',()=>{
  const game={id,venue:'Court',city:'Makati',starts_at:'2099-11-04T10:00:00Z',ends_at:'2099-11-04T13:00:00Z',status:'published' as const,team_price:120000,positions:[],facilitators:[{user_id:id,name:'Assigned Staff'}]}
  const assigned:Workspace={role:'coordinator',games:[game],roster:[],staff:[{id,name:'Assigned Staff',email:'staff@example.test',role:'facilitator'}]}
- it('explains when all eligible staff are already assigned',()=>expect(renderToStaticMarkup(<FaciAssignments workspace={assigned} userId={id} busy={false} action={save}/>)).toContain('No available staff'))
- it('disables assignment when no eligible selection exists',()=>expect(renderToStaticMarkup(<FaciAssignments workspace={assigned} userId={id} busy={false} action={save}/>)).toMatch(/<button[^>]*disabled=""[^>]*>Assign<\/button>/))
+ function editor(workspace = assigned) {
+  return renderToStaticMarkup(<GameOperationModal operation="facilitators" workspace={workspace} gameId={id} busy={false}
+    error={null} action={save} reloadRoster={async () => workspace} saved={noop} close={noop} />)
+ }
+ it('opens one game-scoped editor directly from the operation', () => {
+  const markup = editor({ ...assigned, games: [{ ...game, facilitators: [] }] })
+  expect(markup.match(/<dialog/g)).toHaveLength(1)
+  expect(markup).toContain('Choose staff member')
+  expect(markup).not.toContain('<table')
+ })
+ it('identifies the scheduled game and offers a safe exit before cancellation', () => {
+  const markup = renderToStaticMarkup(<GameOperationModal operation="cancel" workspace={assigned} gameId={id} busy={false}
+    error={null} action={save} reloadRoster={async () => assigned} saved={noop} close={noop} />)
+  expect(markup).toContain('Court')
+  expect(markup).toContain('Nov 4')
+  expect(markup).toMatch(/6:00\s*PM–9:00\s*PM/i)
+  expect(markup).toContain('>Keep game</button>')
+  expect(markup).toContain('>Cancel game</button>')
+ })
+ it('shows why assignment is unavailable while preserving removal', () => {
+  const markup = editor()
+  expect(markup).toContain('No available staff to assign')
+  expect(markup).toContain('aria-label="Remove Assigned Staff"')
+  expect(markup).not.toContain('Choose staff member')
+ })
 })

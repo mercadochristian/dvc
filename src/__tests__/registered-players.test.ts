@@ -3,7 +3,7 @@ import {
   createTimedRequestCache,
   findRegistrationTab,
   parseRegisteredPlayers,
-} from '@/lib/registered-players'
+} from '@/features/legacy-schedule/model/registered-players'
 
 describe('parseRegisteredPlayers', () => {
   it('groups only first names under the four known positions', () => {

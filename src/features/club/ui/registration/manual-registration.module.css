@@ -1,0 +1,13 @@
+.fields {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.fields .footer {
+  position: static;
+  grid-template-columns: minmax(0, 1fr);
+  border-bottom: 1px solid var(--club-line);
+  border-radius: 12px;
+}

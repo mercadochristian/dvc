@@ -43,3 +43,11 @@ next-env.d.ts
 
 # superpowers brainstorm sessions
 .superpowers/
+
+# Dedicated local QA outputs and private authentication state
+/.next-dvc-e2e/
+/.dvc-e2e/
+/playwright-report/
+/test-results/
+/playwright/.auth/
+/supabase/.temp/

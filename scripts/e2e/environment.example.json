@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "purpose": "dvc-e2e",
+  "repositoryRoot": "/Users/christianmercado/Documents/Work/DVC/dvc",
+  "projectId": "dvc-e2e-5eac82db",
+  "runId": "REPLACE_WITH_UUID",
+  "appUrl": "http://127.0.0.1:3317",
+  "supabaseUrl": "http://127.0.0.1:54331",
+  "databaseUrl": "postgresql://postgres@127.0.0.1:54332/postgres",
+  "organizationId": "REPLACE_WITH_DEDICATED_QA_ORGANIZATION_UUID",
+  "sessionSecret": "REPLACE_WITH_NEW_LOCAL_ONLY_SESSION_SECRET",
+  "jwtSecret": "REPLACE_WITH_NEW_LOCAL_ONLY_SUPABASE_JWT_SECRET",
+  "anonKey": "REPLACE_WITH_LOCAL_ANON_JWT",
+  "serviceRoleKey": "REPLACE_WITH_LOCAL_SERVICE_ROLE_JWT",
+  "containers": {
+    "gateway": "REPLACE_WITH_EXACT_CONTAINER_ID",
+    "database": "REPLACE_WITH_EXACT_CONTAINER_ID",
+    "auth": "REPLACE_WITH_EXACT_CONTAINER_ID",
+    "rest": "REPLACE_WITH_EXACT_CONTAINER_ID",
+    "storage": "REPLACE_WITH_EXACT_CONTAINER_ID"
+  }
+}
